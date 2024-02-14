@@ -43,7 +43,7 @@ def train():
         gradients_per_layer = {}
         for module, module_name in zip(utils.get_modules(layer, model_type=model_type),
                                        utils.get_module_names(model_type=model_type)):
-            gradients_per_layer[module_name] = module.weight.grad
+            gradients_per_layer[module_name] = module.weight.grad.cpu()
         gradients.append(gradients_per_layer)
 
     save_path = f"{output_dir}/({model_name_or_path.split('/')[-1]})-{dataset}.pt"
