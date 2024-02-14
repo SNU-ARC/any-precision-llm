@@ -161,3 +161,7 @@ cython_debug/
 
 # Cache folder
 cache/
+
+# Plugin build directories
+modules/kernels/build/*
+modules/kernels/any_precision_ext.egg-info/*
