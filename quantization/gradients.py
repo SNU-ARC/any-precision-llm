@@ -15,7 +15,7 @@ model_type = 'opt'
 
 def train():
     from datautils import get_loaders
-    print("Calibration with " +dataset)
+    print("Calibration with " + dataset)
     dataloader, testloader = get_loaders(dataset, model=model_name_or_path, seqlen=seq_len, nsamples=num_examples)
 
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path, trust_remote_code=True)
@@ -41,8 +41,9 @@ def train():
     gradients = []
     for layer in layers:
         gradients_per_layer = {}
-        for module in utils.get_modules(layer, model_type=model_type):
-            gradients_per_layer[module] = module.weight.grad
+        for module, module_name in zip(utils.get_modules(layer, model_type=model_type),
+                                       utils.get_module_names(model_type=model_type)):
+            gradients_per_layer[module_name] = module.weight.grad
         gradients.append(gradients_per_layer)
 
     save_path = f"{output_dir}/({model_name_or_path.split('/')[-1]})-{dataset}.pt"
