@@ -83,6 +83,7 @@ def get_module_names(model_type):
     else:
         raise NotImplementedError(f"Model type {model_type} not supported")
 
+
 def get_sequential(model_type):
     if model_type == "opt":
         return [
@@ -212,4 +213,3 @@ def get_model_weights(model, model_type):
         model_layers.append(layer_data)
 
     return model_layers
-
