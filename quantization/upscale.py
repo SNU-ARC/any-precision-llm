@@ -11,6 +11,8 @@ import utils
 
 from tqdm import tqdm
 
+from ._config import QuantConfig
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
@@ -420,5 +422,5 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # upscale(args.orig_bit, args.bit, args.model_type, args.lut_src, args.lut_dest, args.gradient, args.model)
     upscale(3, 8, 'opt', '../cache/seed/(opt-1.3b)-c4-w3',
-            '../cache/parent/(opt-1.3b)-c4-w8_orig3',
+            QuantConfig.upscale_output_dir,
             '../cache/gradients/(opt-1.3b)-c4.pt', 'facebook/opt-1.3b', os.cpu_count())
