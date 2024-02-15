@@ -4,14 +4,14 @@ from tqdm import tqdm
 import os
 import utils
 
-### THESE HARDCODED ARGS WILL BE REPLACED BY CLI ARGS
-dataset = 'c4'
-model_name_or_path = 'facebook/opt-1.3b'
-seq_len = 512
-num_examples = 100
-output_dir = '../cache/gradients'
-model_type = 'opt'
+from ._config import QuantConfig
 
+dataset = QuantConfig.dataset
+model_name_or_path = QuantConfig.model_name_or_path
+seq_len = QuantConfig.seq_len
+num_examples = QuantConfig.num_examples
+output_dir = QuantConfig.output_dir
+model_type = QuantConfig.model_type
 
 def train():
     from datautils import get_loaders
