@@ -4,6 +4,7 @@ from tqdm import tqdm
 import os
 import utils
 import argparse
+import logging
 from config import *
 
 from datautils import get_loaders
@@ -25,17 +26,20 @@ def get_gradients(model,
                   num_examples=DEFAULT_NUM_EXAMPLES,
                   model_type=None,
                   save_path=None):
-    print("Calibration with " + dataset)
-    # TODO: remove model from get_loaders
-    dataloader, testloader = get_loaders(dataset, model=model.name_or_path, seqlen=seq_len, nsamples=num_examples)
+    logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
+                 f"{num_examples} examples...")
+    logging.info("Fetching dataset...")
 
     if isinstance(model, str):
         model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
     else:
-        assert isinstance(model, transformers.AutoModelForCausalLM), "Model must be a string or a transformers model"
+        assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
+
+    # TODO: remove model from get_loaders
+    dataloader, testloader = get_loaders(dataset, model=model.name_or_path, seqlen=seq_len, nsamples=num_examples)
 
     if model_type is None:
-        model_type = utils.get_model_type(model)
+        model_type = utils.guess_model_type(model)
 
     model = model.bfloat16()
     model.eval()
@@ -70,6 +74,10 @@ def get_gradients(model,
 
     # Save the gradients to file
     if save_path is not None:
+        logging.info(f"Saving gradients to {save_path}...")
+        # add file extension if not present
+        if not save_path.endswith('.pt'):
+            save_path = save_path + '.pt'
         # check if the file already exists
         if os.path.exists(save_path):
             input(f"[WARNING] File {save_path} already exists. Press enter to overwrite or Ctrl+C to cancel.")

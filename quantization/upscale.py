@@ -1,4 +1,3 @@
-import gc
 import os
 import torch
 from concurrent.futures import ThreadPoolExecutor
@@ -321,8 +320,10 @@ def load_progress(ran, parent_parameters_path, seed_precision, parent_precision)
     return todo_ran, processed_ran
 
 
-def upscale(seed_precision, parent_precision, model_type, seed_parameters_path,
-            parent_parameters_path, gradient_chunks_path, model_path, cpu_count):
+def upscale(model, seed_precision, parent_precision, model_type, seed_parameters_path,
+            parent_parameters_path, gradients, cpu_count=None):
+    if cpu_count is None:
+        cpu_count = os.cpu_count()
     # Determine IO and threading settings based on the number of cores
     if cpu_count >= 8:
         pipelined_io = True
@@ -337,16 +338,22 @@ def upscale(seed_precision, parent_precision, model_type, seed_parameters_path,
     print(f"Upscaling from {seed_precision} to {parent_precision}")
 
     # Count number of layers
-    print("Loading original model weights...")
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
-    model_weights = utils.get_model_weights(model, model_type)
-    del model
+    if isinstance(model, str):
+        print("Loading original model weights...")
+        model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
+    else:
+        assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
+
+    model_weights = utils.get_model_weights(model, model_type)  # TODO: just use the model directly, to prevent loading the model twice
 
     ran = list(range(len(model_weights)))
 
     # Load gradients
-    print("Loading gradients...")
-    gradients = torch.load(gradient_chunks_path)
+    if isinstance(gradients, str):
+        print("Loading gradients...")
+        gradients = torch.load(gradients)
+    else:
+        assert isinstance(gradients, list), "gradients should be a string or a list"
 
     layer_names = utils.get_module_names(model_type)
 

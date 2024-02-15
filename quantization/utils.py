@@ -216,7 +216,7 @@ def get_model_weights(model, model_type):
     return model_layers
 
 
-def get_model_type(model):
+def guess_model_type(model):
     class_name = model.__class__.__name__
 
     class_name_lower = class_name.lower()
