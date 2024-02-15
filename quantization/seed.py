@@ -1,5 +1,5 @@
+import threadpoolctl
 import os
-os.environ["OMP_NUM_THREADS"] = "1"  # this is necessary to parallelize the kmeans
 import logging
 from multiprocessing import Pool
 import torch
@@ -16,15 +16,16 @@ def kmeans_fit(args_tuple):
     Helper function to parallelize the kmeans
     """
     X, sample_weight, n_clusters, random_state, n_init, max_iter = args_tuple
-    kmeans = KMeans(
-        n_clusters=n_clusters,
-        random_state=random_state,
-        n_init=n_init,
-        max_iter=max_iter,
-    ).fit(
-        X,
-        sample_weight=sample_weight,
-    )
+    with threadpoolctl.threadpool_limits(limits=1):
+        kmeans = KMeans(
+            n_clusters=n_clusters,
+            random_state=random_state,
+            n_init=n_init,
+            max_iter=max_iter,
+        ).fit(
+            X,
+            sample_weight=sample_weight,
+        )
     # re-label the clusters to be in order of increasing weight
     # Get the cluster centers
     cluster_centers = kmeans.cluster_centers_.reshape(-1)

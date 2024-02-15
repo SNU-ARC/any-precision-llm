@@ -1,5 +1,4 @@
 import os
-os.environ["OMP_NUM_THREADS"] = "1"  # this is necessary to parallelize the kmeans
 import os.path
 from transformers import AutoModelForCausalLM
 import torch
