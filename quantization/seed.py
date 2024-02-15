@@ -1,6 +1,6 @@
 import os
-
 os.environ["OMP_NUM_THREADS"] = "1"  # this is necessary to parallelize the kmeans
+import logging
 from multiprocessing import Pool
 import torch
 import argparse
@@ -9,38 +9,6 @@ from sklearn.cluster import KMeans
 from tqdm import tqdm
 import utils
 import transformers
-
-parser = argparse.ArgumentParser()
-
-parser.add_argument(
-    '--model', type=str,
-    help='model weights to load', required=True
-)
-parser.add_argument(
-    '--model_type', type=str, default=None,
-    help='model type', choices=['llama', 'opt', 'mistral', 'phi-2']
-)
-parser.add_argument(
-    '--gradient', type=str,
-    help='model gradients to load', required=True
-)
-parser.add_argument(
-    '--bit', type=int, default=3,
-    help='bitwidth', choices=[2, 3, 4, 5, 6, 7, 8],
-)
-parser.add_argument(
-    '--range', type=str, default=None,
-    help='range of layers to quantize'
-)
-parser.add_argument(
-    '--output_folder', type=str, required=False,
-    help='path to dump the output'
-)
-
-parser.add_argument(
-    '--cores', type=int, default=os.cpu_count() - 1,
-    help='number of cores to use for parallelization'
-)
 
 
 def kmeans_fit(args_tuple):
@@ -81,7 +49,12 @@ def kmeans_fit(args_tuple):
     return cluster_centers, labels
 
 
-def main(output_folder, model, model_type, gradient_path, bit_width, cpu_count):
+def main(model, gradients, bit_width, output_folder, model_type=None, cpu_count=None):
+    if cpu_count is None:
+        cpu_count = os.cpu_count()
+
+    logging.info(f"Using {cpu_count} cores for parallelization")
+
     lut_folder = f"{output_folder}/lut"
     if not os.path.exists(lut_folder):
         os.makedirs(lut_folder)
@@ -93,21 +66,25 @@ def main(output_folder, model, model_type, gradient_path, bit_width, cpu_count):
     if isinstance(model, str):
         model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
     else:
-        assert isinstance(model, transformers.AutoModelForCausalLM), "model must be a string or a transformers model"
+        assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
+
+    if model_type is None:
+        model_type = utils.guess_model_type(model)
 
     model_weights = utils.get_model_weights(model, model_type)
     del model
 
-    gradients = torch.load(gradient_path)
+    if isinstance(gradients, str):
+        gradients = torch.load(gradients)
 
-    print(f"Quantizing layers {list(range(len(model_weights)))}")
+    logging.info(f"Quantizing layers {list(range(len(model_weights)))}")
 
     pool = Pool(cpu_count)
 
     with tqdm(total=len(utils.get_module_names(model_type)) * len(model_weights), desc="Quantizing layers") as pbar:
         for l in range(len(model_weights)):
             if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
-                print(f"Skipping layer {l}, file already exists")
+                logging.info(f"Skipping layer {l}, file already exists")
                 pbar.update(len(utils.get_module_names(model_type)))
                 continue
 
@@ -167,7 +144,18 @@ def main(output_folder, model, model_type, gradient_path, bit_width, cpu_count):
 
 
 if __name__ == "__main__":
-    #args = parser.parse_args()
-    # main(args.output_folder, args.model, args.model_type, args.gradient, args.bit, args.cores)
-    main('../cache/seed/(opt-1.3b)-c4-w3', 'facebook/opt-1.3b',
-         'opt', '../cache/gradients/(opt-1.3b)-c4.pt', 3, os.cpu_count())
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('model', type=str, help='model weights to load', )
+    parser.add_argument('--model_type', type=str, default=None, help='model type')
+    parser.add_argument('gradient', type=str, help='model gradients to load', )
+    parser.add_argument('bit', type=int, default=3, help='bitwidth', choices=[2, 3, 4, 5, 6, 7, 8], )
+    parser.add_argument('--range', type=str, default=None, help='range of layers to quantize')
+    parser.add_argument('output_folder', type=str, help='path to dump the output')
+    parser.add_argument('--cores', type=int, default=None,
+                        help='number of cores to use for parallelization')
+
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
+
+    main(args.model, args.gradient, args.bit, args.output_folder, args.model_type, args.cores)
