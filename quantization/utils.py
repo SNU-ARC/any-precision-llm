@@ -213,3 +213,26 @@ def get_model_weights(model, model_type):
         model_layers.append(layer_data)
 
     return model_layers
+
+
+def get_model_type(model):
+    class_name = model.__class__.__name__
+
+    class_name_lower = class_name.lower()
+
+    if "opt" in class_name_lower:
+        model_type = "opt"
+    elif "llama" in class_name_lower:
+        model_type = "llama"
+    elif "mistral" in class_name_lower:
+        model_type = "mistral"
+    elif "phi-2" in class_name_lower:
+        model_type = "phi-2"
+    else:
+        raise RuntimeError(f"Failed to guess model type from model object: {class_name}")
+
+    print("[WARNING] Guessing model type from model object")
+    print(f"Class name: {class_name}")
+    print(f"Guesed model type: {model_type}")
+
+    return model_type

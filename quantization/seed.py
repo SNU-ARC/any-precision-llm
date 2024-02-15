@@ -81,7 +81,7 @@ def kmeans_fit(args_tuple):
     return cluster_centers, labels
 
 
-def main(output_folder, model_path, model_type, gradient_path, bit_width, cpu_count):
+def main(output_folder, model, model_type, gradient_path, bit_width, cpu_count):
     lut_folder = f"{output_folder}/lut"
     if not os.path.exists(lut_folder):
         os.makedirs(lut_folder)
@@ -90,7 +90,11 @@ def main(output_folder, model_path, model_type, gradient_path, bit_width, cpu_co
     if not os.path.exists(weight_folder):
         os.makedirs(weight_folder)
 
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+    if isinstance(model, str):
+        model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
+    else:
+        assert isinstance(model, transformers.AutoModelForCausalLM), "model must be a string or a transformers model"
+
     model_weights = utils.get_model_weights(model, model_type)
     del model
 
