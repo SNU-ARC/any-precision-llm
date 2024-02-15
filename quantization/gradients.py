@@ -4,24 +4,30 @@ from tqdm import tqdm
 import os
 import utils
 import argparse
+from config import *
+
+from datautils import get_loaders
 
 default_output_dir = '../cache/gradients'
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", type=str, default='c4', help="Dataset to use for gradient calculation")
-parser.add_argument("--model_name_or_path", type=str, default='facebook/opt-1.3b',
-                    help="Model to use for gradient calculation")
-parser.add_argument("--seq_len", type=int, default=512, help="Sequence length to use for gradient calculation")
-parser.add_argument("--num_examples", type=int, default=100, help="Number of examples to use for gradient calculation")
+parser.add_argument("--dataset", type=str, default=None, help="Dataset to use for gradient calculation")
+parser.add_argument("--model_name_or_path", type=str, help="Model to use for gradient calculation")
+parser.add_argument("--seq_len", type=int, default=None, help="Sequence length to use for gradient calculation")
+parser.add_argument("--num_examples", type=int, default=None, help="Number of examples to use for gradient calculation")
 parser.add_argument("--output_dir", type=str, default=default_output_dir, help="Output directory for gradients")
 parser.add_argument("--model_type", type=str, default=None, help="Model type to use for gradient calculation")
 
 
-def calculate_gradients(model, model_type, dataset, seq_len, num_examples, output_path):
-    from datautils import get_loaders
+def get_gradients(model,
+                  dataset=DEFAULT_DATASET,
+                  seq_len=DEFAULT_SEQ_LEN,
+                  num_examples=DEFAULT_NUM_EXAMPLES,
+                  model_type=None,
+                  save_path=None):
     print("Calibration with " + dataset)
     # TODO: remove model from get_loaders
-    dataloader, testloader = get_loaders(dataset, model=model, seqlen=seq_len, nsamples=num_examples)
+    dataloader, testloader = get_loaders(dataset, model=model.name_or_path, seqlen=seq_len, nsamples=num_examples)
 
     if isinstance(model, str):
         model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
@@ -63,21 +69,21 @@ def calculate_gradients(model, model_type, dataset, seq_len, num_examples, outpu
         gradients.append(gradients_per_layer)
 
     # Save the gradients to file
-    if output_path is not None:
+    if save_path is not None:
         # check if the file already exists
-        if os.path.exists(output_path):
-            input(f"[WARNING] File {output_path} already exists. Press enter to overwrite or Ctrl+C to cancel.")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        torch.save(gradients, output_path)
+        if os.path.exists(save_path):
+            input(f"[WARNING] File {save_path} already exists. Press enter to overwrite or Ctrl+C to cancel.")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(gradients, save_path)
 
     return gradients
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    calculate_gradients(args.model_name_or_path,
-                        args.model_type,
-                        args.dataset,
-                        args.seq_len,
-                        args.num_examples,
-                        args.output_dir)
+    get_gradients(args.model_name_or_path,
+                  args.model_type,
+                  args.dataset,
+                  args.seq_len,
+                  args.num_examples,
+                  args.output_dir)

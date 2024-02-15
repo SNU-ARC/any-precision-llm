@@ -1,4 +1,5 @@
 from transformers import LlamaForCausalLM, AutoModelForCausalLM, OPTForCausalLM
+import logging
 
 
 def get_modules(layer, model_type):
@@ -231,8 +232,9 @@ def get_model_type(model):
     else:
         raise RuntimeError(f"Failed to guess model type from model object: {class_name}")
 
-    print("[WARNING] Guessing model type from model object")
-    print(f"Class name: {class_name}")
-    print(f"Guesed model type: {model_type}")
+    # Convert the above to logs
+    logging.info(f"Guessing model type from model object")
+    logging.info(f"Class name: {class_name}")
+    logging.info(f"Guesed model type: {model_type}")
 
     return model_type
