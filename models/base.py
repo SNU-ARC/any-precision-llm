@@ -13,6 +13,7 @@ from transformers import (
 from accelerate.big_modeling import (
     init_empty_weights,
     load_checkpoint_and_dispatch,
+    infer_auto_device_map,
 )
 from .QuantLinear import AnyprecisionLinear
 
@@ -60,7 +61,6 @@ class BaseAPForCausalLM(nn.Module):
     def _load_config(
         self,
         model_path,
-        model_filename,
         trust_remote_code=True,
         max_new_tokens=4096,
     ):
@@ -73,11 +73,6 @@ class BaseAPForCausalLM(nn.Module):
         #         ignore_patterns.append("*.safetensors*")
 
         #     model_path = snapshot_download(model_path, ignore_patterns=ignore_patterns)
-
-        if model_filename != "":
-            model_weights_path = model_path + f"/{model_filename}"
-        else:
-            model_weights_path = model_path
 
         config = transformers.AutoConfig.from_pretrained(model_path, trust_remote_code=trust_remote_code)
 
@@ -99,7 +94,7 @@ class BaseAPForCausalLM(nn.Module):
         #     )
         #     config.max_new_tokens = max_new_tokens
 
-        return model_weights_path, config
+        return config
 
     @classmethod
     def from_pretrained(
@@ -141,9 +136,8 @@ class BaseAPForCausalLM(nn.Module):
     @classmethod
     def from_quantized(
         self,
-        model_path,
-        model_type,
-        model_filename="",
+        quant_model_path,
+        origin_model_path,
         max_new_tokens=None,
         torch_dtype=torch.float16,
         trust_remote_code=True,
@@ -156,11 +150,11 @@ class BaseAPForCausalLM(nn.Module):
         supported_bits=None,
         w_bits=None
     ):
+
         # [STEP 1-2] Load weights path and configs
-        model_weights_path, config = self._load_config(
+        config = self._load_config(
             self,
-            model_path,
-            model_filename,
+            origin_model_path,
             trust_remote_code,
             max_new_tokens=max_new_tokens,
         )
@@ -179,22 +173,28 @@ class BaseAPForCausalLM(nn.Module):
         self._load_quantized_modules(
             self,
             model,
-            exclude_modules = None,
-            supported_bits=None,
-            w_bits=None
+            exclude_modules = exclude_modules,
+            supported_bits=supported_bits,
+            w_bits=w_bits
         )
 
         model.tie_weights()
+
+        # bits = [3,4,5,6,7,8]
+        # for bit in supported_bits:
+        #     bits.remove(bit)
+        # skip_keys = [ f'lut{bit}' for bit in bits]
 
         # loads the weights into modules and distributes
         # across available devices automatically
         load_checkpoint_and_dispatch(
             model,
-            checkpoint=model_weights_path,
+            checkpoint=quant_model_path,
             device_map=device_map,
             no_split_module_classes=[self.layer_type],
             offload_folder=offload_folder,
             dtype=torch_dtype,
+            #skip_keys=skip_keys,
         )
 
         # Dispath to devices
@@ -203,7 +203,7 @@ class BaseAPForCausalLM(nn.Module):
 
         return self(
             model,
-            model_type,
+            config.model_type,
             is_quantized=is_quantized,
             config=config
         )
@@ -227,7 +227,7 @@ class BaseAPForCausalLM(nn.Module):
                 if name in exclude_modules:
                     continue
 
-                wqlinear = AnyprecisionLinear(module.in_features, module.out_features,
+                wqlinear = AnyprecisionLinear(module.in_features, module.out_features, module.bias is not None,
                                    supported_bits, w_bits, module.weight.device, module.weight.dtype)
                 wqlinear.to(module.weight.device)
                 set_op_by_name(layer, name, wqlinear)
