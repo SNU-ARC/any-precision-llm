@@ -75,7 +75,7 @@ for layeridx in tqdm(range(num_layers)):
         K = len(curlayer[modelConfig.keys[keyidx]][0][0])
         qweight = np.empty([N, K], dtype='uint8')
         for i in range(N):
-            qweight[i] = curlayer[modelConfig.keys[keyidx]][0][0]
+            qweight[i] = curlayer[modelConfig.keys[keyidx]][i][0]
 
         # # packing uint8 into uint32
         # # shape will be (out_features, in_features//4)
@@ -108,10 +108,10 @@ for layeridx in tqdm(range(num_layers)):
             curLUT = np.empty([N, LUTsize], dtype='float16')
 
             for i in range(N):
-                curLUT[i] = curlayer[modelConfig.keys[keyidx]][0][0]
+                curLUT[i] = curlayer[modelConfig.keys[keyidx]][i][0]
 
             newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.lut{bit}'
             newmodel[newpath] = torch.tensor(curLUT)
 
 os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
-torch.save(newmodel, output_model_path)
+torch.save(newmodel.cpu(), output_model_path)
