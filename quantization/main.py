@@ -28,7 +28,9 @@ def quantize_any_precision(model,
                            dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
                            cpu_count=os.cpu_count(),
                            recalculate_gradients=False,
-                           recalculate_seed=False):
+                           recalculate_seed=False,
+                           fakepack=True,
+                           ):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
 
@@ -134,6 +136,16 @@ def quantize_any_precision(model,
     )
 
     logging.info("Upscale complete.")
+
+    # ------------------- Fakepack -------------------
+
+    # python fakepack.py --model facebook/opt-1.3b --wbits 4 --save ../test_4bit --folder ../cache/parent/\(opt-1.3b\)-w8_orig3-c4_s100_blk512/
+    if fakepack:
+        logging.info("------------------- Fakepack -------------------")
+        for target_precision in range(seed_precision, parent_precision+1):
+            packed_dir = f"up_sqllm-({model_name})-w{target_precision}_orig{seed_precision}-{dataset}_s{num_examples}_blk{seq_len}"
+            os.system(f"python fakepack.py --model '{model_string}' --wbits {target_precision} --save '{packed_dir}' --folder '{parent_cache_path}'")
+
 
 
 if __name__ == "__main__":
