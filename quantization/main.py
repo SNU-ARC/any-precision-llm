@@ -143,7 +143,7 @@ def quantize_any_precision(model,
     if fakepack:
         logging.info("------------------- Fakepack -------------------")
         for target_precision in range(seed_precision, parent_precision+1):
-            packed_dir = f"up_sqllm-({model_name})-w{target_precision}_orig{seed_precision}-{dataset}_s{num_examples}_blk{seq_len}"
+            packed_dir = f"{cache_dir}/packed/up_sqllm-({model_name})-w{target_precision}_orig{seed_precision}-{dataset}_s{num_examples}_blk{seq_len}"
             os.system(f"python fakepack.py --model '{model_string}' --wbits {target_precision} --save '{packed_dir}' --folder '{parent_cache_path}'")
 
 
