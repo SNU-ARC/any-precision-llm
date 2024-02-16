@@ -7,7 +7,8 @@ import argparse
 import logging
 from config import *
 
-from datautils import get_loaders
+from _datautils import get_loaders
+import datautils
 
 
 def get_gradients(model,
@@ -18,15 +19,16 @@ def get_gradients(model,
                   save_path=None):
     logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
                  f"{num_examples} examples...")
-    logging.info("Fetching dataset...")
+    logging.info(f"Fetching {dataset} dataset...")
 
     if isinstance(model, str):
         model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
     else:
         assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
 
-    # TODO: remove model from get_loaders
-    dataloader, testloader = get_loaders(dataset, model=model.name_or_path, seqlen=seq_len, nsamples=num_examples)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model.name_or_path, trust_remote_code=True)
+
+    input_tokens = datautils.get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
 
     if model_type is None:
         model_type = utils.guess_model_type(model)
@@ -46,10 +48,10 @@ def get_gradients(model,
             module.weight.register_hook(square_grad_hook)
 
     # Calculate gradients through loss.backward()
-    for data in tqdm(dataloader):
-        data = data[0]
-        x = data.cuda()
-        outputs = model(input_ids=x, labels=x)
+    for tokens in tqdm(input_tokens, desc="Calculating gradients"):
+        tokens = tokens.cuda()
+        tokens = tokens.unsqueeze(0)
+        outputs = model(input_ids=tokens, labels=tokens)
         loss = outputs.loss
         loss.backward()
 

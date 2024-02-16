@@ -1,8 +1,10 @@
 # It is CRITICAL that the seed module is imported before any other module that uses numpy or torch
 # as other imports may cause issues with threadpoolctl on certain machines, leading to performance drops.
 import seed
+
 import os
 import os.path
+import shutil
 from transformers import AutoModelForCausalLM
 import torch
 import argparse
@@ -25,9 +27,16 @@ def quantize_any_precision(model,
                            model_type=None, cache_dir=DEFAULT_CACHE_DIR,
                            dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
                            cpu_count=os.cpu_count(),
-                           use_cached_gradients=True):
+                           recalculate_gradients=False,
+                           recalculate_seed=False):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
+
+    if recalculate_gradients:
+        if not recalculate_seed:
+            logging.warning("Seed model needs to be recalculated if gradients are recalculated. "
+                            "Setting recalculate_seed to True.")
+            recalculate_seed = True
 
     if mode == 'gradients':
         logging.info("Running: [Gradients]")
@@ -58,11 +67,12 @@ def quantize_any_precision(model,
     gradients_cache_path = f"{cache_dir}/gradients/({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt"
 
     # Calculate or load gradients
-    if use_cached_gradients and os.path.exists(gradients_cache_path):
+    if not recalculate_gradients and os.path.exists(gradients_cache_path):
         model_gradients = torch.load(gradients_cache_path)
         logging.info(f"Loaded cached gradients from {gradients_cache_path}")
     else:
         logging.info("Beginning gradient calculation...")
+        # this will overwrite the gradients cache if it already exists
         model_gradients = gradients.get_gradients(
             model=model,
             dataset=dataset,
@@ -70,7 +80,7 @@ def quantize_any_precision(model,
             num_examples=num_examples,
             model_type=model_type,
             save_path=gradients_cache_path,
-            )
+        )
         logging.info("Gradient calculation complete.")
 
     if mode == 'gradients':
@@ -85,7 +95,14 @@ def quantize_any_precision(model,
     # Calculate or load seed
     logging.info(f"Beginning {seed_precision}-bit seed model generation...")
     # Note that this saves the seed model to the cache path and must be loaded for the upscale step
-    seed.main(  # TODO: Fix performance issue when called from main.py
+    if recalculate_seed and os.path.exists(seed_cache_path):
+        # if the user wants to recalculate the seed, delete the cached seed
+        logging.info(f"Detected cached seed at {seed_cache_path}. Will delete and recalculate.")
+        input(f"To proceed with the deletion of {seed_cache_path}, press Enter. Else, press Ctrl+C to abort.")
+        shutil.rmtree(seed_cache_path)
+
+    # this skips over existing layers in the cache, and doesn't overwrite them
+    seed.main(
         model=model,
         gradients=model_gradients,
         bit_width=seed_precision,
@@ -130,7 +147,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, help="The dataset to use")
     parser.add_argument("--seq_len", type=int, help="The sequence length to use")
     parser.add_argument("--num_examples", type=int, help="The number of examples to use")
-    parser.add_argument("--use_cached_gradients", type=bool, default=True, help="Whether to use cached gradients")
+    parser.add_argument('--recalculate_gradients', action="store_true",
+                        help="Whether to recalculate the gradients")
+    parser.add_argument("--recalculate_seed",  action="store_true",
+                        help="Whether to recalculate the seed")
 
     args = parser.parse_args()
 
