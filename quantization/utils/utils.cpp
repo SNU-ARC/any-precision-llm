@@ -19,8 +19,8 @@ void permute_bitmaps(uint32_t *bitmaps, int N, int K, int w_bits=8) {
 					for (int l=0; l<N; l++) {
 						uint8_t* origpos = reinterpret_cast<uint8_t*>(&bitmaps[i*OFFSET(N,K)]);
 						origpos[l*(K/8) + CHANGE_ENDIANNESS(orig_idx)]
-						// reinterpret_cast<uint8_t*>(bitmaps[i*OFFSET(N,K)])[l*(K/8) + CHANGE_ENDIANNESS(orig_idx)]
-							= reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + CHANGE_ENDIANNESS(new_idx)];
+						// reinterpret_cast<uint8_t*>(bitmaps[i*OFFSET(N,K)])[l*(K/8) + (orig_idx)]
+							= reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + (new_idx)];
 					}
 				}
 			}
@@ -38,12 +38,12 @@ void permute_bitmaps(uint32_t *bitmaps, int N, int K, int w_bits=8) {
 					int new_idx = (K/(num_w_per_thread*warp_size))*warp_size*4+t_id+k*last_warp_size;
 
 					for (int l=0; l<N; l++) {
-						// reinterpret_cast<uint8_t*>(bitmaps[i*OFFSET(N,K)])[l*(K/8) + CHANGE_ENDIANNESS(orig_idx)]
-						// 	= reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + CHANGE_ENDIANNESS(new_idx)];
+						// reinterpret_cast<uint8_t*>(bitmaps[i*OFFSET(N,K)])[l*(K/8) + (orig_idx)]
+						// 	= reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + (new_idx)];
 
 							uint8_t* origpos = reinterpret_cast<uint8_t*>(&bitmaps[i*OFFSET(N,K)]);
                         origpos[l*(K/8) + CHANGE_ENDIANNESS(orig_idx)]
-                            = reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + CHANGE_ENDIANNESS(new_idx)];
+                            = reinterpret_cast<uint8_t*>(bitmap_)[l*(K/8) + (new_idx)];
 					}
 				}
 			}

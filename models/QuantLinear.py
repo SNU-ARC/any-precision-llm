@@ -83,8 +83,9 @@ class AnyprecisionLinear(nn.Module):
         if newx.shape[0] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], K, w_bits)
             result = torch.matmul(x, weight.T)
-            return result
         else:
             result = matmul_kbit(newx, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
             result = result.reshape(*inputshape[:-1],result.shape[-1])
-            return result
+
+        result = result + self.bias if self.bias is not None else result
+        return result
