@@ -1,3 +1,6 @@
+# It is CRITICAL that the seed module is imported before any other module that uses numpy or torch
+# as other imports may cause issues with threadpoolctl on certain machines, leading to performance drops.
+import seed
 import os
 import os.path
 from transformers import AutoModelForCausalLM
@@ -9,7 +12,6 @@ from config import *
 import utils
 
 import gradients
-import seed
 import upscale
 
 # Logging with time sans date, level name, and message
