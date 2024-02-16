@@ -12,8 +12,9 @@ if __name__ == '__main__':
     import pdb
     pdb.set_trace()
 
-    input_context = "yellow cat"
+    input_context = "do you know somewhere to go on weekend?"
     input_ids = tokenizer.encode(input_context, return_tensors="pt")
-    output = model.generate(input_ids, max_length=256)
+    #output = model.generate(input_ids.to('cuda'), max_length=256)
+    output = model(input_ids.to('cuda'))
     output_text = tokenizer.decode(output[0], skip_special_tokens=True)
     print(output_text)

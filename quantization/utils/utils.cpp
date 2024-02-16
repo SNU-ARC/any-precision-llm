@@ -55,7 +55,7 @@ void permute_bitmaps(uint32_t *bitmaps, int N, int K, int w_bits=8) {
 
 void preprocess_bitmaps(torch::Tensor bitmaps, int N, int K, int w_bits)
 {
-    uint32_t *p_bitmaps = reinterpret_cast<uint32_t*>(bitmaps.data_ptr<uint8_t>());
+    uint32_t *p_bitmaps = reinterpret_cast<uint32_t*>(bitmaps.data_ptr<int>());
 
     permute_bitmaps(p_bitmaps, N, K, w_bits);
 }

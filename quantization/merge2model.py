@@ -7,7 +7,7 @@ from tqdm import tqdm
 try:
     from any_precision_utils import preprocess_bitmaps
 except:
-    exit('Please install any precision CUDA kernel extension from modules/kernels.')
+    exit('Please install any precision CUDA kernel utils from quantization/utils.')
 
 
 class QuantConfig:
@@ -77,17 +77,17 @@ for layeridx in tqdm(range(num_layers)):
         for i in range(N):
             qweight[i] = curlayer[modelConfig.keys[keyidx]][i][0]
 
-        # # packing uint8 into uint32
-        # # shape will be (out_features, in_features//4)
-        # bitshape = (N,K//4)
-        # bitdata = qweight.tobytes()
-        # npbitmaps = np.frombuffer(bitdata,'int32')
+        # packing uint8 into uint32
+        # shape will be (out_features, in_features//4)
+        bitshape = (N,K//4)
+        bitdata = qweight.tobytes()
+        qweight = np.frombuffer(bitdata,'int32')
 
         # newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.qweight'
-        # newmodel[newpath] = torch.tensor(npbitmaps,dtype=torch.int32).view(bitshape)
+        # newmodel[newpath] = torch.tensor(qweight,dtype=torch.int32).view(bitshape)
 
         # permute bitmap @ Section 5.3
-        weighttensor = torch.tensor(qweight)
+        weighttensor = torch.tensor(qweight,dtype=torch.int32).view(bitshape)
         preprocess_bitmaps(weighttensor, N, K, 8)
 
         newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.qweight'
@@ -114,4 +114,4 @@ for layeridx in tqdm(range(num_layers)):
             newmodel[newpath] = torch.tensor(curLUT)
 
 os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
-torch.save(newmodel.cpu(), output_model_path)
+torch.save(newmodel, output_model_path)

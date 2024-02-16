@@ -60,10 +60,11 @@ dequant_func dequant_functions[9] = {NULL, };
 torch::Tensor dequant_kbit(
     torch::Tensor qweight,
     torch::Tensor lut,
+    int in_K,
     int w_bits
 ) {
     const int N = qweight.size(0);
-    const int K = qweight.size(1) / w_bits * 32;
+    const int K = in_K; // qweight.size(1) * 32 / w_bits ;
     // TODO assert with size or dtype
     // assert(w_bits >= 3 && w_bits <= 8);
 
@@ -92,11 +93,14 @@ torch::Tensor matmul_kbit(
     torch::Tensor lut,
     int w_bits
 ) {
+    in = torch::squeeze(in);
     const int M = in.size(0);
     const int K = in.size(1);
     const int N = qweight.size(0);
     // TODO assert with size or dtype
     // assert(M >= 1 && M <= 8 && w_bits >= 3 && w_bits <= 8);
+
+    // printf("M %d, N %d, K %d\n",M,N,K);
 
     if (!matmul_initialized) {
         int device;

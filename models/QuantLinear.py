@@ -29,10 +29,12 @@ class AnyprecisionLinear(nn.Module):
         elif w_bits not in self.supported_bits:
             raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
 
+        self.max_supported_bits = max(supported_bits)
         self.w_bits = w_bits
 
         total_bits = [3, 4, 5, 6, 7, 8]
-        self.register_buffer("qweight", torch.zeros((out_features,in_features),dtype=torch.int32,device="cpu"))
+        #
+        self.register_buffer("qweight", torch.zeros((out_features,in_features//4),dtype=torch.int32,device="cpu"))
         for bit in total_bits:
             self.register_buffer(
                 f'lut{bit}',
@@ -65,8 +67,10 @@ class AnyprecisionLinear(nn.Module):
         if w_bits not in self.supported_bits:
             raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
 
+        K = self.in_features
+
         if x.shape[0] > 8:
-            weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
+            weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], K, w_bits)
             return torch.matmul(x, weight.T)
         else:
             return matmul_kbit(x, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
