@@ -68,6 +68,9 @@ torch::Tensor dequant_kbit(
     // TODO assert with size or dtype
     // assert(w_bits >= 3 && w_bits <= 8);
 
+    // printf("dequant N %d K %d\n",N,K);
+
+
     if (!dequant_initalized) {
         get_dequant_func<3, 8>()(dequant_functions);
         dequant_initalized = true;
@@ -96,6 +99,8 @@ torch::Tensor matmul_kbit(
     const int M = in.size(0);
     const int K = in.size(1);
     const int N = qweight.size(0);
+    // printf("matmul M %d N %d K %d\n",M,N,K);
+
     // TODO assert with size or dtype
     // assert(M >= 1 && M <= 8 && w_bits >= 3 && w_bits <= 8);
 

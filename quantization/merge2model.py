@@ -21,7 +21,6 @@ class QuantConfig:
     upscale_output_dir = '../cache/parent/(opt-1.3b)-c4-w8_orig3'
     output_model_dir = '../cache/models'
 
-
 class ModelConfig:
     def __init__(self, key, prefix, suffix):
         self.keys = key
@@ -73,14 +72,20 @@ for layeridx in tqdm(range(num_layers)):
     for keyidx in range(len(modelConfig.keys)):
         N = len(curlayer[modelConfig.keys[keyidx]])
         K = len(curlayer[modelConfig.keys[keyidx]][0][0])
-        qweight = np.empty([N, K], dtype='uint8')
-        for i in range(N):
-            qweight[i] = curlayer[modelConfig.keys[keyidx]][i][0]
+        # qweight = np.empty([N, K], dtype='uint8')
+        # for i in range(N):
+        #     qweight[i] = curlayer[modelConfig.keys[keyidx]][i][0]
+        qweight = curlayer[modelConfig.keys[keyidx]]
+
+        bitarray = np.empty(0, dtype=np.uint8)
+        for bit in range(8):
+            curbitpack = np.packbits(torch.tensor(qweight&(1<<(7-bit))).to(torch.bool))
+            bitarray = np.append(bitarray, curbitpack)
 
         # packing uint8 into uint32
         # shape will be (out_features, in_features//4)
         bitshape = (N,K//4)
-        bitdata = qweight.tobytes()
+        bitdata = bitarray.tobytes()
         qweight = np.frombuffer(bitdata,'int32')
 
         # newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.qweight'
