@@ -209,7 +209,7 @@ def get_model_weights(model, model_type):
             "number of modules and module names don't match: {} vs {}".format(len(modules), len(module_names))
 
         for module, name in zip(modules, module_names):
-            layer_data[name] = module.weight.data
+            layer_data[name] = module.weight.data.cpu()
 
         model_layers.append(layer_data)
 

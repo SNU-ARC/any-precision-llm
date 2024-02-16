@@ -9,16 +9,6 @@ from config import *
 
 from datautils import get_loaders
 
-default_output_dir = '../cache/gradients'
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--dataset", type=str, default=None, help="Dataset to use for gradient calculation")
-parser.add_argument("--model_name_or_path", type=str, help="Model to use for gradient calculation")
-parser.add_argument("--seq_len", type=int, default=None, help="Sequence length to use for gradient calculation")
-parser.add_argument("--num_examples", type=int, default=None, help="Number of examples to use for gradient calculation")
-parser.add_argument("--output_dir", type=str, default=default_output_dir, help="Output directory for gradients")
-parser.add_argument("--model_type", type=str, default=None, help="Model type to use for gradient calculation")
-
 
 def get_gradients(model,
                   dataset=DEFAULT_DATASET,
@@ -88,6 +78,16 @@ def get_gradients(model,
 
 
 if __name__ == "__main__":
+    default_output_dir = '../cache/gradients'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, default=None, help="Dataset to use for gradient calculation")
+    parser.add_argument("--model_name_or_path", type=str, help="Model to use for gradient calculation")
+    parser.add_argument("--seq_len", type=int, default=None, help="Sequence length to use for gradient calculation")
+    parser.add_argument("--num_examples", type=int, default=None,
+                        help="Number of examples to use for gradient calculation")
+    parser.add_argument("--output_dir", type=str, default=default_output_dir, help="Output directory for gradients")
+    parser.add_argument("--model_type", type=str, default=None, help="Model type to use for gradient calculation")
     args = parser.parse_args()
     get_gradients(args.model_name_or_path,
                   args.model_type,
