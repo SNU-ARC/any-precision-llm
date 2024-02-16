@@ -69,8 +69,22 @@ class AnyprecisionLinear(nn.Module):
 
         K = self.in_features
 
-        if x.shape[0] > 8:
+        newx = x
+        inputshape = x.shape
+        if len(x.shape) > 3:
+            raise RuntimeError('forward input dimension over 3, case error, need import')
+        elif len(x.shape) > 2:
+            if x.shape[0] is not 1:
+                raise RuntimeError('forward input case error, need import')
+            else:
+                newx = x[0]
+
+        if newx.shape[0] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], K, w_bits)
-            return torch.matmul(x, weight.T)
+            result = torch.matmul(x, weight.T)
+            result.reshape(inputshape)
+            return result
         else:
-            return matmul_kbit(x, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
+            result = matmul_kbit(newx, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
+            result.reshape(inputshape)
+            return result

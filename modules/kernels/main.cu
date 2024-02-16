@@ -93,7 +93,6 @@ torch::Tensor matmul_kbit(
     torch::Tensor lut,
     int w_bits
 ) {
-    in = torch::squeeze(in);
     const int M = in.size(0);
     const int K = in.size(1);
     const int N = qweight.size(0);
