@@ -60,16 +60,13 @@ dequant_func dequant_functions[9] = {NULL, };
 torch::Tensor dequant_kbit(
     torch::Tensor qweight,
     torch::Tensor lut,
-    int in_K,
     int w_bits
 ) {
-    const int N = qweight.size(0);
-    const int K = in_K; // qweight.size(1) * 32 / w_bits ;
-    // TODO assert with size or dtype
-    // assert(w_bits >= 3 && w_bits <= 8);
-
-    // printf("dequant N %d K %d\n",N,K);
-
+    assert(qweight.ndimension() == 3 && qweight.dtype() == torch::kInt && lut.dtype() == torch::kHalf);
+    assert(qweight.device() == lut.device() && qweight.is_cuda());
+    assert(w_bits >= 3 && w_bits <= 8);
+    const int N = qweight.size(1);
+    const int K = qweight.size(2) * 32;
 
     if (!dequant_initalized) {
         get_dequant_func<3, 8>()(dequant_functions);
@@ -96,15 +93,16 @@ torch::Tensor matmul_kbit(
     torch::Tensor lut,
     int w_bits
 ) {
-    const int M = in.size(0);
-    const int K = in.size(1);
-    const int N = qweight.size(0);
-    // printf("matmul M %d N %d K %d\n",M,N,K);
+    const int N = qweight.size(1);
+    const int K = qweight.size(2) * 32;
+    int64_t in_ndim = in.ndimension();
+    const int M = in.numel() / K;
 
     // TODO assert with size or dtype
-    // assert(M >= 1 && M <= 8 && w_bits >= 3 && w_bits <= 8);
-
-    // printf("M %d, N %d, K %d\n",M,N,K);
+    assert(M >= 1 && M <= 8 && w_bits >= 3 && w_bits <= 8);
+    assert(in.device() == qweight.device() && in.device() == lut.device() && in.is_cuda());
+    assert(qweight.ndimension() == 3 && qweight.dtype() == torch::kInt && lut.dtype() == torch::kHalf);
+    assert(in.dtype() == torch::kHalf);
 
     if (!matmul_initialized) {
         int device;
@@ -117,8 +115,10 @@ torch::Tensor matmul_kbit(
         matmul_initialized = true;
     }
 
+    auto sizes = in.sizes().vec();
+    sizes.at(in_ndim - 1) = N;
     auto options = torch::TensorOptions().dtype(torch::kHalf).device(in.device());
-    at::Tensor out = torch::empty({M, N}, options);
+    at::Tensor out = torch::empty(sizes, options);
 
     const int multi_row = (M == 1 ? 1 : 4);
     const int use_ksplit = !is_orin && M == 1 && K > 4096 && w_bits >= 7;

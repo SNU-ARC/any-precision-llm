@@ -1,4 +1,3 @@
-import tqdm
 from .base import BaseAPForCausalLM
 from transformers.models.opt.modeling_opt import (
     OPTDecoderLayer as OldOPTDecoderLayer,

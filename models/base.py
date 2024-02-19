@@ -1,21 +1,18 @@
-import os
 import gc
 import torch
-import transformers
 import torch.nn as nn
 from tqdm import tqdm
-
 from transformers import (
-    AutoConfig,
     PreTrainedModel,
     PretrainedConfig,
+    AutoConfig,
+    AutoModelForCausalLM,
 )
 from accelerate.big_modeling import (
     init_empty_weights,
     load_checkpoint_and_dispatch,
-    infer_auto_device_map,
 )
-from .QuantLinear import AnyprecisionLinear
+from .AnyPrecisionLinear import AnyPrecisionLinear
 
 def get_named_linears(module):
     return {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
@@ -77,7 +74,7 @@ class BaseAPForCausalLM(nn.Module):
 
         #     model_path = snapshot_download(model_path, ignore_patterns=ignore_patterns)
 
-        config = transformers.AutoConfig.from_pretrained(model_path, trust_remote_code=trust_remote_code)
+        config = AutoConfig.from_pretrained(model_path, trust_remote_code=trust_remote_code)
 
         # # Load model config and set max generation length
         # if max_new_tokens is None and hasattr(self, "max_new_tokens_key"):
@@ -110,15 +107,13 @@ class BaseAPForCausalLM(nn.Module):
         device_map=None,
         **model_init_kwargs,
     ):
-        # Get weights path and quant config
+        # Get weights path and quant config : TODO what is this parameters?
         model_weights_path, config = self._load_config(
             self, model_path, "", safetensors, trust_remote_code=trust_remote_code
         )
 
-        target_cls = transformers.AutoModelForCausalLM
-
         # If not quantized, must load with AutoModelForCausalLM
-        model = target_cls.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             model_weights_path,
             trust_remote_code=trust_remote_code,
             torch_dtype=torch_dtype,
@@ -150,8 +145,7 @@ class BaseAPForCausalLM(nn.Module):
         device_map="balanced",
         offload_folder=None,
         exclude_modules = None,
-        supported_bits=None,
-        w_bits=None
+        supported_bits=None
     ):
 
         # [STEP 1-2] Load weights path and configs
@@ -162,23 +156,21 @@ class BaseAPForCausalLM(nn.Module):
             max_new_tokens=max_new_tokens,
         )
 
-        target_cls = transformers.AutoModelForCausalLM
-
-        # [STEP 3] Load model
+        # [STEP 3] Load model : TODO fix flash attention to option
         with init_empty_weights():
-            model = target_cls.from_config(
+            model = AutoModelForCausalLM.from_config(
                 config=config,
                 torch_dtype=torch_dtype,
                 trust_remote_code=trust_remote_code,
+                # attn_implementation="flash_attention_2",
             )
 
         # Prepare WQLinear layers, replace nn.Linear
         self._load_quantized_modules(
             self,
             model,
-            exclude_modules = exclude_modules,
+            exclude_modules=exclude_modules,
             supported_bits=supported_bits,
-            w_bits=w_bits
         )
 
         model.tie_weights()
@@ -223,27 +215,25 @@ class BaseAPForCausalLM(nn.Module):
         )
 
     def _load_quantized_modules(
-        self, model, exclude_modules = None, supported_bits=None, w_bits=None
+        self, model, exclude_modules = None, supported_bits=None
     ):
         # Get blocks of model
         layers = self.get_model_layers(model)
+        
+        if exclude_modules is None:
+            exclude_modules = ['lm_head']
 
-        exclude_modules = ['lm_head'] if exclude_modules is None else exclude_modules
-
-        for i in tqdm(range(len(layers)), desc="Replacing layers..."):
-            layer = layers[i]
-
+        for layer in tqdm(layers, desc="Replacing layers..."):
             # Get every linear layer in a block
             named_linears = get_named_linears(layer)
 
-            # Replace nn.Linear with WQLinear
+            # Replace nn.Linear with AnyPrecisionLinear
             for name, module in named_linears.items():
                 if name in exclude_modules:
                     continue
 
-                wqlinear = AnyprecisionLinear(module.in_features, module.out_features, module.bias is not None,
-                                   supported_bits, w_bits, module.weight.device, module.weight.dtype)
-                wqlinear.to(module.weight.device)
+                wqlinear = AnyPrecisionLinear(module.in_features, module.out_features, module.bias is not None,
+                                   supported_bits, module.weight.device, module.weight.dtype)
                 set_op_by_name(layer, name, wqlinear)
 
             torch.cuda.empty_cache()
