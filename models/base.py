@@ -18,7 +18,7 @@ def get_named_linears(module):
     return {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
 
 def get_AP_linears(module):
-    return {name: m for name, m in module.named_modules() if isinstance(m, AnyprecisionLinear)}
+    return {name: m for name, m in module.named_modules() if isinstance(m, AnyPrecisionLinear)}
 
 def set_op_by_name(layer, name, new_module):
     levels = name.split('.')
