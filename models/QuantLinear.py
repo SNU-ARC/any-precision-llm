@@ -41,7 +41,6 @@ class AnyprecisionLinear(nn.Module):
                 torch.empty(
                     (out_features, 2 ** bit),
                     dtype=torch.float16,
-                    device="cpu"
                 )
             )
 
@@ -59,6 +58,10 @@ class AnyprecisionLinear(nn.Module):
 
     def refine_bits(self):
         supported_bits = self.supported_bits
+        max_supported_bit = max(supported_bits)
+        flat_weight = torch.flatten(self.qweight)
+        bitmap_shape = (self.out_features,self.in_features*max_supported_bit//32) # 8bit * 4 bytes for uint32
+        self.qweight = flat_weight.split(len(flat_weight)*max_supported_bit//8)[0].view(bitmap_shape)
 
     def forward(self, x, w_bits=None):
         if w_bits is None:

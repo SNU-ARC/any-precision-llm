@@ -20,6 +20,9 @@ from .QuantLinear import AnyprecisionLinear
 def get_named_linears(module):
     return {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
 
+def get_AP_linears(module):
+    return {name: m for name, m in module.named_modules() if isinstance(m, AnyprecisionLinear)}
+
 def set_op_by_name(layer, name, new_module):
     levels = name.split('.')
     if len(levels) > 1:
@@ -180,16 +183,19 @@ class BaseAPForCausalLM(nn.Module):
 
         model.tie_weights()
 
-        # bits = [3,4,5,6,7,8]
-        # for bit in supported_bits:
-        #     bits.remove(bit)
-        # skip_keys = [ f'lut{bit}' for bit in bits]
+        skip_bits = [3,4,5,6,7,8]
+        for bit in supported_bits:
+            skip_bits.remove(bit)
+        skip_keys = [ f'lut{bit}' for bit in skip_bits]
 
         q_model = torch.load(quant_model_path)
 
         device_map = dict()
         for key in q_model.keys():
-            device_map[key] = 'cuda:0'
+            if key.split('.')[-1] in skip_keys:
+                device_map[key] = 'cpu'
+            else:
+                device_map[key] = 'cuda:0'
 
         # loads the weights into modules and distributes
         # across available devices automatically
@@ -206,6 +212,8 @@ class BaseAPForCausalLM(nn.Module):
         # Dispath to devices
         if fuse_layers:
             self.fuse_layers(model)
+
+        self.refine_maxbits_linears(self, model)
 
         return self(
             model,
@@ -240,3 +248,23 @@ class BaseAPForCausalLM(nn.Module):
 
             torch.cuda.empty_cache()
             gc.collect()
+
+    def refine_maxbits_linears(
+        self, model
+    ):
+
+        # Get blocks of model
+        layers = self.get_model_layers(model)
+
+        for i in tqdm(range(len(layers)), desc="Replacing layers..."):
+            layer = layers[i]
+
+            # Get every linear layer in a block
+            named_linears = get_AP_linears(layer)
+
+            for name, module in named_linears.items():
+
+                module.refine_bits()
+
+        torch.cuda.empty_cache()
+        gc.collect()

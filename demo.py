@@ -7,7 +7,8 @@ if __name__ == '__main__':
     o_model_path = 'facebook/opt-1.3b'
     tokenizer = transformers.AutoTokenizer.from_pretrained(o_model_path)
     config = transformers.AutoConfig.from_pretrained(o_model_path, trust_remote_code=True)
-    model = OPTAPForCausalLM.from_quantized(q_model_path, o_model_path,config.max_position_embeddings, supported_bits=[4,8], w_bits=4)
+    model = OPTAPForCausalLM.from_quantized(q_model_path, o_model_path,config.max_position_embeddings,
+                                            supported_bits=[4], w_bits=4)
 
     input_context = "yellow cat"
     #input_context = ""
