@@ -55,23 +55,6 @@ def load_model(model, model_type, cache_dir=None):
     return model
 
 
-def parse_model(model):
-    if "opt" in str(type(model)).lower():
-        model_type = "opt"
-    elif "llama" in str(type(model)).lower():
-        model_type = "llama"
-    elif "mistral" in str(type(model)).lower():
-        model_type = "mistral"
-    elif "phi-2" in str(type(model)).lower():
-        model_type = "phi-2"
-    else:
-        raise NotImplementedError(f"Model type {model} not supported")
-
-    print(f'Model type : {model_type}')
-
-    return model_type
-
-
 def get_module_names(model_type):
     if model_type == "opt":
         return ["q", "k", "v", "o", "up", "down"]
