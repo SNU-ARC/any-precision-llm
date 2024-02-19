@@ -3,6 +3,7 @@ import os
 import numpy as np
 from transformers import AutoModelForCausalLM
 from tqdm import tqdm
+import pack
 
 try:
     from any_precision_utils import preprocess_bitmaps
@@ -79,15 +80,22 @@ for layeridx in tqdm(range(num_layers)):
         # packing uint8 into uint32
         # shape will be (out_features, in_features//4)
         bitshape = (8, N, K // 32)
-        bitdata = bitarray.tobytes()
-        qweight = np.frombuffer(bitdata,'int32')
+        #bitdata = bitarray.tobytes()
+        #qweight = np.frombuffer(bitdata,'int32')
 
         # newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.qweight'
         # newmodel[newpath] = torch.tensor(qweight,dtype=torch.int32).view(bitshape)
 
         # permute bitmap @ Section 5.3
-        weighttensor = torch.tensor(qweight,dtype=torch.int32).view(bitshape)
-        preprocess_bitmaps(weighttensor, N, K, 8)
+        #weighttensor = torch.tensor(qweight,dtype=torch.int32).view(bitshape)
+        #preprocess_bitmaps(weighttensor, N, K, 8)
+
+        bitarray = bitarray.reshape((8, N, K // 8))
+        weighttensor = pack.permute_bitmaps(bitarray)
+        weighttensor = weighttensor.reshape(-1, 4).view(np.int32)
+        weighttensor = torch.from_numpy(weighttensor)
+        weighttensor = weighttensor.reshape((8, N, K // 32))
+
 
         newpath = f'{modelConfig.prefix}{layeridx}{modelConfig.suffix[keyidx]}.qweight'
         newmodel[newpath] = weighttensor
