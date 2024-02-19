@@ -7,7 +7,6 @@ import argparse
 import logging
 from config import *
 
-from _datautils import get_loaders
 import datautils
 
 
