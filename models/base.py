@@ -185,6 +185,15 @@ class BaseAPForCausalLM(nn.Module):
         #     bits.remove(bit)
         # skip_keys = [ f'lut{bit}' for bit in bits]
 
+        q_model = torch.load(quant_model_path)
+
+        device_map = dict()
+        for key in q_model.keys():
+            device_map[key] = 'cuda:0'
+
+        import pdb
+        pdb.set_trace()
+
         # loads the weights into modules and distributes
         # across available devices automatically
         load_checkpoint_and_dispatch(
