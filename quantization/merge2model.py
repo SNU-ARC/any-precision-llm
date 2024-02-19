@@ -7,18 +7,13 @@ from tqdm import tqdm
 try:
     from any_precision_utils import preprocess_bitmaps
 except:
-    exit('Please install any precision CUDA kernel utils from quantization/utils.')
+    exit('Please install any precision c++ utils from quantization/utils.')
 
 
 class QuantConfig:
     ### THESE HARDCODED ARGS WILL BE REPLACED BY CLI ARGS
-    dataset = 'c4'
     model_name_or_path = 'facebook/opt-1.3b'
-    seq_len = 512
-    num_examples = 100
-    output_dir = '../cache/gradients'
-    model_type = 'opt'
-    upscale_output_dir = '../cache/parent/(opt-1.3b)-c4-w8_orig3'
+    upscale_output_dir = '../cache/parent/(opt-1.3b)-w8_orig3-c4_s100_blk512'
     output_model_dir = '../cache/models'
 
 class ModelConfig:
@@ -29,7 +24,6 @@ class ModelConfig:
 
 
 model = AutoModelForCausalLM.from_pretrained(QuantConfig.model_name_or_path, trust_remote_code=True)
-model.to("cpu")
 model = model.state_dict()
 
 output_model_path = os.path.join(QuantConfig.output_model_dir, QuantConfig.model_name_or_path.split('/')[-1] + '.pt')
@@ -84,7 +78,7 @@ for layeridx in tqdm(range(num_layers)):
 
         # packing uint8 into uint32
         # shape will be (out_features, in_features//4)
-        bitshape = (N,K//4)
+        bitshape = (8, N, K // 32)
         bitdata = bitarray.tobytes()
         qweight = np.frombuffer(bitdata,'int32')
 
