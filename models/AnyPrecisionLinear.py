@@ -20,6 +20,7 @@ class AnyPrecisionLinear(nn.Module):
         self.supported_bits = supported_bits
         self.default_bit = max(self.supported_bits)
 
+        # size of buffer refined later
         self.register_buffer(
             'qweight',
             torch.empty(
@@ -27,8 +28,9 @@ class AnyPrecisionLinear(nn.Module):
                 dtype=torch.int32,
                 device=device
             )
-        ) # size of buffer refined later
+        )
 
+        # unsupported lut table will removed later
         for bit in [3, 4, 5, 6, 7, 8]:
             self.register_buffer(
                 f'lut{bit}',
@@ -37,7 +39,7 @@ class AnyPrecisionLinear(nn.Module):
                     dtype=torch.float16,
                     device=device
                 )
-            ) # unsupported lut table will removed later
+            )
 
         if bias is not None:
             self.register_buffer(
@@ -53,6 +55,9 @@ class AnyPrecisionLinear(nn.Module):
 
     def refine_bits(self):
         self.qweight = self.qweight[:max(self.supported_bits)]
+        for bit in [3, 4, 5, 6, 7, 8]:
+            if bit not in self.supported_bits:
+                delattr(self, f'lut{bit}')
 
     def forward(self, x, w_bits=None):
         if w_bits is None:

@@ -10,7 +10,6 @@ if __name__ == '__main__':
     config = AutoConfig.from_pretrained(o_model_path, trust_remote_code=True)
     # model = AutoModelForCausalLM.from_pretrained(o_model_path)
     model = OPTAPForCausalLM.from_quantized(q_model_path, o_model_path, config.max_position_embeddings, supported_bits=supported_bits)
-    # TODO : Why the model is already in GPU?
     model = model.eval().cuda()
 
     input_context = "Yellow cat"
