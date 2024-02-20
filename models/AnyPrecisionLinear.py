@@ -24,13 +24,13 @@ class AnyPrecisionLinear(nn.Module):
         self.register_buffer(
             'qweight',
             torch.empty(
-                (max_bit, out_features, in_features // 32),
+                (8, out_features, in_features // 32),
                 dtype=torch.int32,
                 device=device
             )
-        )
+        ) # size of buffer refined later
 
-        for bit in supported_bits:
+        for bit in [3, 4, 5, 6, 7, 8]:
             self.register_buffer(
                 f'lut{bit}',
                 torch.empty(
@@ -38,7 +38,7 @@ class AnyPrecisionLinear(nn.Module):
                     dtype=torch.float16,
                     device=device
                 )
-            )
+            ) # unsupported lut table will removed later
 
         if bias is not None:
             self.register_buffer(

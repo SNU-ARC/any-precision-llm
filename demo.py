@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 if __name__ == '__main__':
     o_model_path = 'facebook/opt-1.3b'
     q_model_path = 'cache/models/opt-1.3b.pt'
-    supported_bits = [3, 4, 5, 6, 7, 8]
+    supported_bits = [4, 6]
 
     tokenizer = AutoTokenizer.from_pretrained(o_model_path)
     config = AutoConfig.from_pretrained(o_model_path, trust_remote_code=True)

@@ -175,19 +175,20 @@ class BaseAPForCausalLM(nn.Module):
 
         model.tie_weights()
 
-        skip_bits = [3,4,5,6,7,8]
-        for bit in supported_bits:
-            skip_bits.remove(bit)
-        skip_keys = [ f'lut{bit}' for bit in skip_bits]
+        # skip_bits = [3,4,5,6,7,8]
+        # for bit in supported_bits:
+        #     skip_bits.remove(bit)
+        # skip_keys = [ f'lut{bit}' for bit in skip_bits]
 
-        q_model = torch.load(quant_model_path)
+        q_model = torch.load(quant_model_path, map_location="cpu")
 
         device_map = dict()
         for key in q_model.keys():
-            if key.split('.')[-1] in skip_keys:
-                device_map[key] = 'cpu'
-            else:
-                device_map[key] = 'cuda:0'
+            device_map[key] = 'cpu'
+            # if key.split('.')[-1] in skip_keys:
+            #     device_map[key] = 'cpu'
+            # else:
+            #     device_map[key] = 'cuda:0'
 
         # loads the weights into modules and distributes
         # across available devices automatically
@@ -205,7 +206,7 @@ class BaseAPForCausalLM(nn.Module):
         if fuse_layers:
             self.fuse_layers(model)
 
-        self.refine_maxbits_linears(self, model)
+        self.refine_maxbits_linears(self, model, supported_bits)
 
         return self(
             model,
@@ -219,7 +220,7 @@ class BaseAPForCausalLM(nn.Module):
     ):
         # Get blocks of model
         layers = self.get_model_layers(model)
-        
+
         if exclude_modules is None:
             exclude_modules = ['lm_head']
 
@@ -240,11 +241,16 @@ class BaseAPForCausalLM(nn.Module):
             gc.collect()
 
     def refine_maxbits_linears(
-        self, model
+        self, model, supported_bits
     ):
 
         # Get blocks of model
         layers = self.get_model_layers(model)
+
+        skip_bits = [3,4,5,6,7,8]
+        for bit in supported_bits:
+            skip_bits.remove(bit)
+        skip_keys = [ f'lut{bit}' for bit in skip_bits]
 
         for i in tqdm(range(len(layers)), desc="Replacing layers..."):
             layer = layers[i]
@@ -253,8 +259,10 @@ class BaseAPForCausalLM(nn.Module):
             named_linears = get_AP_linears(layer)
 
             for name, module in named_linears.items():
-
                 module.refine_bits()
+
+                for delkey in skip_keys:
+                    delattr(module,delkey)
 
         torch.cuda.empty_cache()
         gc.collect()
