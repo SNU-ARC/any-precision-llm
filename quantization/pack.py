@@ -74,10 +74,50 @@ def _permute_bitmaps_int32(bitmaps):
     return bitmaps.reshape(-1, 4).view(np.int32).reshape(w_bits, N, total_bytes // 4)
 
 
-def pack(model, lut_path, output_model_path, seed_precision, parent_precision, model_type=None,
-         cpu_count=None):
-    if cpu_count is not None:
+def process_layer_data(args):
+    layer_idx, lut_path, model_type, layers_name, module_real_names, parent_precision, seed_precision = args
+    layer_data = {}
+
+    weightpath = os.path.join(lut_path, 'weights', f'l{layer_idx}.pt')
+    layer_weights = torch.load(weightpath)
+    module_names = utils.get_module_names(model_type)
+
+    for i, name in enumerate(module_names):
+        N, group_count, group_size = layer_weights[name].shape
+        K = group_count * group_size
+
+        qweight_flattened = layer_weights[name].flatten()
+        bitarray = np.empty((parent_precision, len(qweight_flattened) // 8), dtype=np.uint8)
+        mask = 1 << (parent_precision - 1)  # MSB first
+        for bit in range(parent_precision):
+            curbitpack = np.packbits((qweight_flattened & mask).astype(bool))
+            bitarray[bit] = curbitpack
+            mask >>= 1
+
+        bitarray = bitarray.reshape((parent_precision, N, K // 8))
+        weighttensor = _permute_bitmaps_int32(bitarray)  # Ensure this function is defined
+        weighttensor = torch.from_numpy(weighttensor)
+
+        param_name = f'{layers_name}.{layer_idx}.{module_real_names[i]}'
+        layer_data[param_name + '.qweight'] = weighttensor.numpy()
+
+        for bit in range(seed_precision, parent_precision + 1):
+            layer_lut_path = os.path.join(lut_path, f'lut_{bit}', f'l{layer_idx}.pt')
+            layer_lut = torch.load(layer_lut_path)
+
+            curLUT = np.empty((N, 2 ** bit), dtype=np.float16)
+            for j in range(N):
+                curLUT[j] = layer_lut[name][j][0]  # the 0 here assumes group_count == 1
+
+            layer_data[param_name + '.lut' + str(bit)] = curLUT
+
+    return layer_idx, layer_data
+
+
+def pack(model, lut_path, output_model_path, seed_precision, parent_precision, model_type=None, cpu_count=None):
+    if cpu_count is None:
         cpu_count = os.cpu_count()
+
     model = utils.load_model(model)
     if model_type is None:
         model_type = utils.guess_model_type(model)
@@ -85,57 +125,18 @@ def pack(model, lut_path, output_model_path, seed_precision, parent_precision, m
     model_weights = utils.get_model_weights(model, model_type)
 
     num_layers = len(model_weights)
-
-    module_names = utils.get_module_names(model_type)
     layers_name = utils.get_layers_name(model_type)
     module_real_names = utils.get_sequential(model_type)
 
-    pool = Pool()
+    args_list = [(layer_idx, lut_path, model_type, layers_name, module_real_names, parent_precision, seed_precision) for
+                 layer_idx in range(num_layers)]
 
-    for layeridx in tqdm(range(num_layers)):
-        weightpath = os.path.join(lut_path, f'weights', f'l{layeridx}.pt')
-        layer_lut = torch.load(weightpath)
-
-        for i, name in enumerate(module_names):
-            N, group_count, group_size = layer_lut[name].shape
-            K = group_count * group_size
-
-            qweight_flattened = layer_lut[name].flatten()
-
-            bitarray = np.empty((parent_precision, len(qweight_flattened) // 8), dtype=np.uint8)
-            mask = 1 << (parent_precision - 1)  # MSB first
-            for bit in range(parent_precision):
-                curbitpack = np.packbits((qweight_flattened & mask).astype(bool))
-                bitarray[bit] = curbitpack
-                mask >>= 1
-
-            # permute bitmap @ Section 5.3
-            bitarray = bitarray.reshape((parent_precision, N, K // 8))
-            weighttensor = _permute_bitmaps_int32(bitarray)
-            weighttensor = torch.from_numpy(weighttensor)
-
-            param_name = f'{layers_name}.{layeridx}.{module_real_names[i]}'
-            del state_dict[param_name + '.weight']
-            state_dict[param_name + '.qweight'] = weighttensor
-
-        for bit in range(seed_precision, parent_precision + 1):
-            layer_lut_path = os.path.join(lut_path, f'lut_{bit}', f'l{layeridx}.pt')
-            layer_lut = torch.load(layer_lut_path)
-
-            # shapes are (out_features, 1, in_features)
-
-            for i, name in enumerate(module_names):
-                N, group_count, group_size = layer_lut[name].shape
-                K = group_count * group_size
-                if group_count != 1:
-                    raise NotImplementedError("Group count != 1 not implemented yet. Kernel adaptation required.")
-                curLUT = np.empty((N, K), dtype=np.float16)
-
-                for j in range(N):
-                    curLUT[j] = layer_lut[name][j][0]  # the 0 here assumes group_count == 1, so one group per row
-
-                param_name = f'{layers_name}.{layeridx}.{module_real_names[i]}'
-                state_dict[param_name + '.lut' + str(bit)] = torch.tensor(curLUT)
+    with Pool(cpu_count) as pool:
+        for layer_idx, layer_data in tqdm(pool.imap(process_layer_data, args_list), total=num_layers):
+            for key, value in layer_data.items():
+                if '.qweight' in key:
+                    del state_dict[key.replace('.qweight', '.weight')]  # Delete original weights
+                state_dict[key] = torch.from_numpy(value)  # Update with modified weights
 
     if not output_model_path.endswith('.pt'):
         output_model_path += '.pt'

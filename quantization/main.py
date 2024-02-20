@@ -159,6 +159,7 @@ def quantize_any_precision(model,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
         model_type=model_type,
+        cpu_count=cpu_count,
     )
 
     logging.info("Packing complete.")
