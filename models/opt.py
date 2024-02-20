@@ -4,6 +4,7 @@ from transformers.models.opt.modeling_opt import (
     OPTForCausalLM as OldOPTForCausalLM
 )
 
+
 class OPTAPForCausalLM(BaseAPForCausalLM):
     layer_type = "OPTDecoderLayer"
     max_new_tokens_key = "max_position_embeddings"

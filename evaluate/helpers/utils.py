@@ -35,6 +35,12 @@ def get_subdirs(path):
             if os.path.isdir(os.path.join(path, o))]
 
 
+def get_files(path):
+    if not os.path.exists(path):
+        return []
+    return [os.path.join(path, o) for o in sorted(os.listdir(path))
+            if os.path.isfile(os.path.join(path, o))]
+
 def get_base_models(include_prequant=False, relevant_models_only=False):
     """ Get the repo names of all base models """
     repo_names = [
@@ -212,7 +218,7 @@ def model_name_parser(full_model_name):
         params['Alg'] = 'AutoAWQ'
     elif fields[0] == 'sqllm':
         params['Alg'] = 'SqLLM'
-    elif fields[0] in ('up_sqllm', 'down_sqllm'):
+    elif fields[0] in ('up_sqllm', 'down_sqllm', 'anyprec'):
         params['Alg'] = 'Scaled SqLLM'
     elif fields[0] == 'scaled_awq':
         params['Alg'] = 'Scaled AWQ'

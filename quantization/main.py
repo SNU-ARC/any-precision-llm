@@ -144,7 +144,7 @@ def quantize_any_precision(model,
     # ------------------- Pack -------------------
     logging.info("------------------- Pack -------------------")
 
-    model_output_path = (f"{cache_dir}/packed/({model_name})-w{parent_precision}_orig{seed_precision}"
+    model_output_path = (f"{cache_dir}/packed/anyprec-({model_name})-w{parent_precision}_orig{seed_precision}"
                          f"-{dataset}_s{num_examples}_blk{seq_len}.pt")
 
     if os.path.exists(model_output_path):

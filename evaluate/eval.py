@@ -2,8 +2,9 @@ from helpers import dataloader
 from tqdm import tqdm
 import torch
 from helpers.utils import vprint, logprint, model_name_parser, base_model_name_to_hf_repo_name, get_tokenizer_type
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import os
+from models.opt import OPTAPForCausalLM
 import json
 
 
@@ -24,24 +25,19 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
     """
     logprint(verbose, "Loading tokenizer and model...")
 
-    if 'sqllm' in model_path.lower():
-        # for sqllm models, we load the base model and then replace the weights with the quantized weights
-        model_params = model_name_parser(model_path)
-        repo_name = base_model_name_to_hf_repo_name(model_params['base_model'])
-        tokenizer = AutoTokenizer.from_pretrained(repo_name)
-        checkpoint_path = model_path + '/pytorch_model.bin'
-
-        model = AutoModelForCausalLM.from_pretrained(repo_name, torch_dtype=dtype,
-                                                     trust_remote_code=True).cuda()
-
-        checkpoint_weights = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint_weights, strict=False)
+    if 'anyprec-' in model_path:
+        assert model_path.endswith('.pt'), "Anyprec model path must end with .pt"
+        params = model_name_parser(model_path[:-3])
+        model_repo = base_model_name_to_hf_repo_name(params['base_model'])
+        tokenizer = AutoTokenizer.from_pretrained(model_repo)
+        config = AutoConfig.from_pretrained(model_repo, trust_remote_code=True)
+        model = OPTAPForCausalLM.from_quantized(model_path, model_repo,config.max_position_embeddings, supported_bits=[3, 4, 5, 6, 7, 8]).cuda()
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,
                                                      trust_remote_code=True).cuda()
 
-    logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
+    #logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
 
     tokenizer_type = get_tokenizer_type(model_path)
 
@@ -77,7 +73,8 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
         input_tokens = load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
 
-        input_tokens.to(model.device)
+        #input_tokens.to(model.device)
+        input_tokens.to('cuda')
 
         logprint(verbose, "Calculating perplexity...")
 

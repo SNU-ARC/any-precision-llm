@@ -15,7 +15,7 @@ model_paths = []
 
 # Uncomment the line below to run baseline models
 # model_paths += utils.get_base_models(include_prequant=False, relevant_models_only=True)
-model_paths += utils.get_subdirs('../cache/packed/')
+model_paths += utils.get_files('../cache/packed')
 
 # testcases for perplexity calculation
 datasets = ['wikitext2', 'c4_new', 'ptb_new_sliced']
