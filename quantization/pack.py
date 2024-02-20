@@ -3,13 +3,15 @@ import numba
 from tqdm import tqdm
 import os
 import torch
+import logging
+from multiprocessing import Pool
 
 import utils
 
 _bytes_per_thread = 4
 
 
-@numba.njit
+#@numba.njit
 def _permute_bitmaps(bitmaps):
     w_bits, N, total_bytes = bitmaps.shape
     assert total_bytes % 4 == 0, "Number of bytes must be a multiple of 4"
@@ -39,7 +41,7 @@ def _permute_bitmaps(bitmaps):
         # Combine indices - the choice to not use np.concatenate is for numba compatibility
         new_byte_indices = np.empty(total_bytes, dtype=np.int64)
         new_byte_indices[:full_warps_bytes] = new_full_warp_byte_indices
-        new_remaining_byte_indices[full_warps_bytes:] = new_remaining_byte_indices
+        new_byte_indices[full_warps_bytes:] = new_remaining_byte_indices
     else:
         new_byte_indices = new_full_warp_byte_indices
 
@@ -48,7 +50,7 @@ def _permute_bitmaps(bitmaps):
     return permuted_bitmaps
 
 
-@numba.njit
+#@numba.njit
 def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     """
     Calculate new byte indices for a given array of byte indices.
@@ -68,7 +70,7 @@ def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     return new_byte_indices
 
 
-@numba.njit
+#@numba.njit
 def _permute_bitmaps_int32(bitmaps):
     """Return a permuted version of the input bitmaps, reshaped to int32."""
     w_bits, N, total_bytes = bitmaps.shape
@@ -76,7 +78,10 @@ def _permute_bitmaps_int32(bitmaps):
     return bitmaps.reshape(-1, 4).view(np.int32).reshape(w_bits, N, total_bytes // 4)
 
 
-def pack(model, lut_path, output_model_path, seed_precision, parent_precision, model_type=None):
+def pack(model, lut_path, output_model_path, seed_precision, parent_precision, model_type=None,
+         cpu_count=None):
+    if cpu_count is not None:
+        cpu_count = os.cpu_count()
     model = utils.load_model(model)
     if model_type is None:
         model_type = utils.guess_model_type(model)
@@ -88,6 +93,8 @@ def pack(model, lut_path, output_model_path, seed_precision, parent_precision, m
     module_names = utils.get_module_names(model_type)
     layers_name = utils.get_layers_name(model_type)
     module_real_names = utils.get_sequential(model_type)
+
+    pool = Pool()
 
     for layeridx in tqdm(range(num_layers)):
         weightpath = os.path.join(lut_path, f'weights', f'l{layeridx}.pt')
@@ -134,8 +141,11 @@ def pack(model, lut_path, output_model_path, seed_precision, parent_precision, m
                 param_name = f'{layers_name}.{layeridx}.{module_real_names[i]}'
                 state_dict[param_name + '.lut' + str(bit)] = torch.tensor(curLUT)
 
+    if not output_model_path.endswith('.pt'):
+        output_model_path += '.pt'
     os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
     torch.save(state_dict, output_model_path)
+    logging.info(f"Model saved to {output_model_path}")
 
 
 if __name__ == '__main__':

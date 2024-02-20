@@ -145,7 +145,12 @@ def quantize_any_precision(model,
     logging.info("------------------- Pack -------------------")
 
     model_output_path = (f"{cache_dir}/packed/({model_name})-w{parent_precision}_orig{seed_precision}"
-                         f"-{dataset}_s{num_examples}_blk{seq_len}")
+                         f"-{dataset}_s{num_examples}_blk{seq_len}.pt")
+
+    if os.path.exists(model_output_path):
+        logging.info(f"Detected existing packed model at {model_output_path}.")
+        input(f"To proceed and overwrite {model_output_path}, press Enter. Else, press Ctrl+C to abort.")
+        os.remove(model_output_path)
 
     pack.pack(
         model=model,
@@ -157,6 +162,7 @@ def quantize_any_precision(model,
     )
 
     logging.info("Packing complete.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Quantize a model to any precision")
