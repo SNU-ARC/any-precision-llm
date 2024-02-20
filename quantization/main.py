@@ -17,6 +17,9 @@ import gradients
 import upscale
 import pack
 
+# Disable parallelism in tokenizers to prevent warnings when forking in the seed generation step
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Logging with time sans date, level name, and message
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
