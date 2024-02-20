@@ -1,8 +1,10 @@
 import numpy as np
+import numba
 
 _bytes_per_thread = 4
 
 
+@numba.njit
 def permute_bitmaps(bitmaps):
     w_bits, N, total_bytes = bitmaps.shape
     assert total_bytes % 4 == 0, "Number of bytes must be a multiple of 4"
@@ -28,8 +30,11 @@ def permute_bitmaps(bitmaps):
         new_remaining_byte_indices = calculate_new_indices(remaining_byte_indices,
                                                            adjusted_threads_per_warp,
                                                            offset=remaining_bytes_start_idx)
-        # Combine indices
-        new_byte_indices = np.concatenate([new_full_warp_byte_indices, new_remaining_byte_indices])
+
+        # Combine indices - the choice to not use np.concatenate is for numba compatibility
+        new_byte_indices = np.empty(total_bytes, dtype=np.int64)
+        new_byte_indices[:full_warps_bytes] = new_full_warp_byte_indices
+        new_remaining_byte_indices[full_warps_bytes:] = new_remaining_byte_indices
     else:
         new_byte_indices = new_full_warp_byte_indices
 
@@ -38,6 +43,7 @@ def permute_bitmaps(bitmaps):
     return permuted_bitmaps
 
 
+@numba.njit
 def calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     """
     Calculate new byte indices for a given array of byte indices.
@@ -57,6 +63,7 @@ def calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     return new_byte_indices
 
 
+@numba.njit
 def permute_bitmaps_int32(bitmaps):
     """Return a permuted version of the input bitmaps, reshaped to int32."""
     w_bits, N, total_bytes = bitmaps.shape
