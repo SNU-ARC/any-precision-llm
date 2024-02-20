@@ -1,5 +1,4 @@
 import numpy as np
-import numba
 from tqdm import tqdm
 import os
 import torch
@@ -11,7 +10,6 @@ import utils
 _bytes_per_thread = 4
 
 
-#@numba.njit
 def _permute_bitmaps(bitmaps):
     w_bits, N, total_bytes = bitmaps.shape
     assert total_bytes % 4 == 0, "Number of bytes must be a multiple of 4"
@@ -50,7 +48,6 @@ def _permute_bitmaps(bitmaps):
     return permuted_bitmaps
 
 
-#@numba.njit
 def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     """
     Calculate new byte indices for a given array of byte indices.
@@ -70,7 +67,6 @@ def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     return new_byte_indices
 
 
-#@numba.njit
 def _permute_bitmaps_int32(bitmaps):
     """Return a permuted version of the input bitmaps, reshaped to int32."""
     w_bits, N, total_bytes = bitmaps.shape
@@ -107,14 +103,14 @@ def pack(model, lut_path, output_model_path, seed_precision, parent_precision, m
             qweight_flattened = layer_lut[name].flatten()
 
             bitarray = np.empty((parent_precision, len(qweight_flattened) // 8), dtype=np.uint8)
-            mask = 1 << (parent_precision - 1)
+            mask = 1 << (parent_precision - 1)  # MSB first
             for bit in range(parent_precision):
                 curbitpack = np.packbits((qweight_flattened & mask).astype(bool))
                 bitarray[bit] = curbitpack
                 mask >>= 1
 
             # permute bitmap @ Section 5.3
-            bitarray = bitarray.reshape((8, N, K // 8))
+            bitarray = bitarray.reshape((parent_precision, N, K // 8))
             weighttensor = _permute_bitmaps_int32(bitarray)
             weighttensor = torch.from_numpy(weighttensor)
 
