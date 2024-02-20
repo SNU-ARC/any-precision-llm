@@ -11,7 +11,7 @@ import utils
 import transformers
 
 
-def kmeans_fit(args_tuple):
+def _kmeans_fit(args_tuple):
     """
     Helper function to parallelize the kmeans
     """
@@ -50,7 +50,7 @@ def kmeans_fit(args_tuple):
     return cluster_centers, labels
 
 
-def main(model, gradients, bit_width, output_folder, model_type=None, cpu_count=None):
+def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
@@ -64,10 +64,7 @@ def main(model, gradients, bit_width, output_folder, model_type=None, cpu_count=
     if not os.path.exists(weight_folder):
         os.makedirs(weight_folder)
 
-    if isinstance(model, str):
-        model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
-    else:
-        assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
+    model = utils.load_model(model)
 
     if model_type is None:
         model_type = utils.guess_model_type(model)
@@ -120,7 +117,7 @@ def main(model, gradients, bit_width, output_folder, model_type=None, cpu_count=
             # run kmeans using a pool of processes
             kmeans_results_by_module = []
             for kmeans_jobs_per_module in kmeans_jobs_by_module:
-                kmeans_results_per_module = list(pool.map(kmeans_fit, kmeans_jobs_per_module))
+                kmeans_results_per_module = list(pool.map(_kmeans_fit, kmeans_jobs_per_module))
                 kmeans_results_by_module.append(kmeans_results_per_module)
                 pbar.update()
 
@@ -159,4 +156,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
-    main(args.model, args.gradient, args.bit, args.output_folder, args.model_type, args.cores)
+    get_seed(args.model, args.gradient, args.bit, args.output_folder, args.model_type, args.cores)

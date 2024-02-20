@@ -20,11 +20,7 @@ def get_gradients(model,
                  f"{num_examples} examples...")
     logging.info(f"Fetching {dataset} dataset...")
 
-    if isinstance(model, str):
-        model = transformers.AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
-    else:
-        assert isinstance(model, transformers.PreTrainedModel), "model must be a string or a PreTrainedModel"
-
+    model = utils.load_model(model)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model.name_or_path, trust_remote_code=True)
 
     input_tokens = datautils.get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)

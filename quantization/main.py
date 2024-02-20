@@ -15,6 +15,7 @@ import utils
 
 import gradients
 import upscale
+import pack
 
 # Logging with time sans date, level name, and message
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
@@ -104,7 +105,7 @@ def quantize_any_precision(model,
         shutil.rmtree(seed_cache_path)
 
     # this skips over existing layers in the cache, and doesn't overwrite them
-    seed.main(
+    seed.get_seed(
         model=model,
         gradients=model_gradients,
         bit_width=seed_precision,
@@ -137,16 +138,22 @@ def quantize_any_precision(model,
 
     logging.info("Upscale complete.")
 
-    # ------------------- Fakepack -------------------
+    # ------------------- Pack -------------------
+    logging.info("------------------- Pack -------------------")
 
-    # python fakepack.py --model facebook/opt-1.3b --wbits 4 --save ../test_4bit --folder ../cache/parent/\(opt-1.3b\)-w8_orig3-c4_s100_blk512/
-    if fakepack:
-        logging.info("------------------- Fakepack -------------------")
-        for target_precision in range(seed_precision, parent_precision+1):
-            packed_dir = f"{cache_dir}/packed/up_sqllm-({model_name})-w{target_precision}_orig{seed_precision}-{dataset}_s{num_examples}_blk{seq_len}"
-            os.system(f"python fakepack.py --model '{model_string}' --wbits {target_precision} --save '{packed_dir}' --folder '{parent_cache_path}'")
+    model_output_path = (f"{cache_dir}/packed/({model_name})-w{parent_precision}_orig{seed_precision}"
+                         f"-{dataset}_s{num_examples}_blk{seq_len}")
 
+    pack.pack(
+        model=model,
+        lut_path=parent_cache_path,
+        output_model_path=model_output_path,
+        seed_precision=seed_precision,
+        parent_precision=parent_precision,
+        model_type=model_type,
+    )
 
+    logging.info("Packing complete.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Quantize a model to any precision")
@@ -161,7 +168,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_examples", type=int, help="The number of examples to use")
     parser.add_argument('--recalculate_gradients', action="store_true",
                         help="Whether to recalculate the gradients")
-    parser.add_argument("--recalculate_seed",  action="store_true",
+    parser.add_argument("--recalculate_seed", action="store_true",
                         help="Whether to recalculate the seed")
 
     args = parser.parse_args()

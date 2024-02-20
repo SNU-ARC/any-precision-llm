@@ -3,7 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 
 if __name__ == '__main__':
     o_model_path = 'facebook/opt-1.3b'
-    q_model_path = 'cache/models/opt-1.3b.pt'
+    q_model_path = './cache/packed/(opt-1.3b)-w8_orig3-c4_s100_blk512'
     supported_bits = [3, 4, 5, 6, 7, 8]
 
     tokenizer = AutoTokenizer.from_pretrained(o_model_path)
