@@ -3,7 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 
 if __name__ == '__main__':
     o_model_path = 'facebook/opt-1.3b'
-    q_model_path = 'cache/models/opt-1.3b.pt'
+    q_model_path = './cache/packed/(opt-1.3b)-w8_orig3-c4_s100_blk512'
     supported_bits = [3, 4]
 
     tokenizer = AutoTokenizer.from_pretrained(o_model_path)
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     # TODO : Why the model is already in GPU?
     model = model.eval().cuda()
 
-    input_context = "I'm cat person, "
+    input_context = "Yellow cat"
     input_ids = tokenizer.encode(input_context, return_tensors="pt")
     output = model.generate(input_ids.cuda(), max_length=256)
     output_text = tokenizer.decode(output[0], skip_special_tokens=True)

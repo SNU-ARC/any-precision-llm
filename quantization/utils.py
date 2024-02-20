@@ -1,4 +1,4 @@
-from transformers import LlamaForCausalLM, AutoModelForCausalLM, OPTForCausalLM
+from transformers import LlamaForCausalLM, AutoModelForCausalLM, OPTForCausalLM, PreTrainedModel
 import logging
 
 
@@ -33,26 +33,6 @@ def get_modules(layer, model_type):
         ]
     else:
         raise NotImplementedError(f"Unsupported model type {model_type}")
-
-
-def load_model(model, model_type, cache_dir=None):
-    if model_type == "opt":
-        model = OPTForCausalLM.from_pretrained(
-            model,
-            torch_dtype='auto',
-            cache_dir=cache_dir,
-            trust_remote_code=True,
-        )
-    elif model_type == "llama":
-        model = LlamaForCausalLM.from_pretrained(model, torch_dtype='auto', cache_dir=cache_dir)
-    elif model_type == "mistral":
-        model = AutoModelForCausalLM.from_pretrained(model, torch_dtype='auto', cache_dir=cache_dir)
-    elif model_type == 'phi-2':
-        model = AutoModelForCausalLM.from_pretrained(model, torch_dtype='auto', cache_dir=cache_dir,
-                                                     trust_remote_code=True)
-    else:
-        raise NotImplementedError(f"Model type {model_type} not supported")
-    return model
 
 
 def get_module_names(model_type):
@@ -182,11 +162,11 @@ def get_norm(model, model_type):
 def get_model_weights(model, model_type):
     layers = get_layers(model, model_type)
     model_layers = []
+    module_names = get_module_names(model_type)
 
     for layer in layers:
         layer_data = {}
         modules = get_modules(layer, model_type)
-        module_names = get_module_names(model_type)
 
         assert len(modules) == len(module_names), \
             "number of modules and module names don't match: {} vs {}".format(len(modules), len(module_names))
@@ -200,6 +180,7 @@ def get_model_weights(model, model_type):
 
 
 def guess_model_type(model):
+    assert isinstance(model, PreTrainedModel), f"Expected model to be a PreTrainedModel, got {type(model)}"
     class_name = model.__class__.__name__
 
     class_name_lower = class_name.lower()
@@ -221,3 +202,13 @@ def guess_model_type(model):
     logging.info(f"Guesed model type: {model_type}")
 
     return model_type
+
+
+def load_model(model_str_or_model):
+    """Returns a model from a string or a model object. If a string is passed, it will be loaded from the HuggingFace"""
+    if isinstance(model_str_or_model, str):
+        model = AutoModelForCausalLM.from_pretrained(model_str_or_model, trust_remote_code=True)
+    else:
+        assert isinstance(model_str_or_model, PreTrainedModel), "model must be a string or a PreTrainedModel"
+        model = model_str_or_model
+    return model
