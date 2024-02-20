@@ -18,8 +18,7 @@ class AnyPrecisionLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.supported_bits = supported_bits
-        max_bit = max(supported_bits)
-        self.default_bit = max_bit
+        self.default_bit = max(self.supported_bits)
 
         self.register_buffer(
             'qweight',
@@ -53,11 +52,7 @@ class AnyPrecisionLinear(nn.Module):
             self.bias = None
 
     def refine_bits(self):
-        supported_bits = self.supported_bits
-        max_supported_bit = max(supported_bits)
-        flat_weight = torch.flatten(self.qweight)
-        bitmap_shape = (max_supported_bit, self.out_features,self.in_features//32) # 8bit * 4 bytes for uint32
-        self.qweight = flat_weight.split(len(flat_weight)*max_supported_bit//8)[0].view(bitmap_shape)
+        self.qweight = self.qweight[:max(self.supported_bits)]
 
     def forward(self, x, w_bits=None):
         if w_bits is None:

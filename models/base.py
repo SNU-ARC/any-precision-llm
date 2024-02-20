@@ -165,7 +165,7 @@ class BaseAPForCausalLM(nn.Module):
                 # attn_implementation="flash_attention_2",
             )
 
-        # Prepare WQLinear layers, replace nn.Linear
+        # Prepare AnyPrecisionLinear layers, replace nn.Linear
         self._load_quantized_modules(
             self,
             model,
@@ -260,7 +260,6 @@ class BaseAPForCausalLM(nn.Module):
 
             for name, module in named_linears.items():
                 module.refine_bits()
-
                 for delkey in skip_keys:
                     delattr(module,delkey)
 
