@@ -6,10 +6,12 @@ except:
     exit('Please install any precision CUDA kernel extension from modules/kernels.')
 
 class AnyPrecisionLinear(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, supported_bits=None, device=None, dtype=None):
+    def __init__(self, in_features, out_features, bias=True, model_supported_bits=None, supported_bits=None, device=None, dtype=None):
         super().__init__()
+        if model_supported_bits is None:
+            model_supported_bits = [3, 4, 5, 6, 7, 8]
         if supported_bits is None:
-            supported_bits = [3, 4, 5, 6, 7, 8]
+            supported_bits = model_supported_bits
         if not isinstance(supported_bits, list):
             raise RuntimeError('supported_bits must be a list of integers.')
         if dtype is not None and dtype != torch.float16:
@@ -18,20 +20,21 @@ class AnyPrecisionLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.supported_bits = supported_bits
-        self.default_bit = max(self.supported_bits)
+        self.default_bit = max(supported_bits)
+        self.model_supported_bits = model_supported_bits
 
         # size of buffer refined later
         self.register_buffer(
             'qweight',
             torch.empty(
-                (8, out_features, in_features // 32),
+                (max(model_supported_bits), out_features, in_features // 32),
                 dtype=torch.int32,
                 device=device
             )
         )
 
         # unsupported lut table will removed later
-        for bit in [3, 4, 5, 6, 7, 8]:
+        for bit in model_supported_bits:
             self.register_buffer(
                 f'lut{bit}',
                 torch.empty(
@@ -41,7 +44,7 @@ class AnyPrecisionLinear(nn.Module):
                 )
             )
 
-        if bias is not None:
+        if bias:
             self.register_buffer(
                 "bias",
                 torch.empty(
@@ -55,7 +58,7 @@ class AnyPrecisionLinear(nn.Module):
 
     def refine_bits(self):
         self.qweight = self.qweight[:max(self.supported_bits)]
-        for bit in [3, 4, 5, 6, 7, 8]:
+        for bit in self.model_supported_bits:
             if bit not in self.supported_bits:
                 delattr(self, f'lut{bit}')
 

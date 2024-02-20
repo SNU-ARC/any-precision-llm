@@ -220,8 +220,13 @@ class BaseAPForCausalLM(nn.Module):
                 if name in exclude_modules:
                     continue
 
-                wqlinear = AnyPrecisionLinear(module.in_features, module.out_features, module.bias is not None,
-                                   supported_bits, module.weight.device, module.weight.dtype)
+                wqlinear = AnyPrecisionLinear(
+                    module.in_features, module.out_features,
+                    bias=module.bias is not None,
+                    supported_bits=supported_bits,
+                    device=module.weight.device,
+                    dtype=module.weight.dtype,
+                )
                 set_op_by_name(layer, name, wqlinear)
 
             torch.cuda.empty_cache()
