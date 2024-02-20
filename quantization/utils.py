@@ -191,7 +191,7 @@ def guess_model_type(model):
         model_type = "llama"
     elif "mistral" in class_name_lower:
         model_type = "mistral"
-    elif "phi-2" in class_name_lower:
+    elif "phi" in class_name_lower:
         model_type = "phi-2"
     else:
         raise RuntimeError(f"Failed to guess model type from model object: {class_name}")
