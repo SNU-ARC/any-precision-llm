@@ -12,6 +12,7 @@ from accelerate.big_modeling import (
     init_empty_weights,
     load_checkpoint_and_dispatch,
 )
+import os
 from .AnyPrecisionLinear import AnyPrecisionLinear
 
 def get_named_linears(module):
@@ -135,7 +136,6 @@ class BaseAPForCausalLM(nn.Module):
     def from_quantized(
         self,
         quant_model_path,
-        origin_model_path,
         max_new_tokens=None,
         torch_dtype=torch.float16,
         trust_remote_code=True,
@@ -151,7 +151,7 @@ class BaseAPForCausalLM(nn.Module):
         # [STEP 1-2] Load weights path and configs
         config = self._load_config(
             self,
-            origin_model_path,
+            quant_model_path,
             trust_remote_code,
             max_new_tokens=max_new_tokens,
         )
@@ -175,7 +175,15 @@ class BaseAPForCausalLM(nn.Module):
 
         model.tie_weights()
 
-        q_model = torch.load(quant_model_path, map_location="cpu")
+        # Look for the weights file and load it
+        for file in os.listdir(quant_model_path):
+            file_path = os.path.join(quant_model_path, file)
+            if file.endswith('.bin'):
+                q_model = torch.load(file_path, map_location="cpu")
+                break
+        else:
+            raise FileNotFoundError(f"No weights file found in {quant_model_path}")
+
         device_map = {key: 'cpu' for key in q_model.keys()}
 
         # loads the weights into modules and distributes
