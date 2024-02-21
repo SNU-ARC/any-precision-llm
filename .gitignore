@@ -168,3 +168,6 @@ modules/kernels/any_precision_ext.egg-info/*
 
 # JSON files
 *.json
+
+# Evaluate directories
+evaluate/input_tokens_cache/
