@@ -20,7 +20,7 @@ class AnyPrecisionLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.supported_bits = supported_bits
-        self.default_bit = max(supported_bits)
+        self.selected_bit = max(supported_bits)
         self.model_supported_bits = model_supported_bits
 
         # size of buffer refined later
@@ -62,12 +62,14 @@ class AnyPrecisionLinear(nn.Module):
             if bit not in self.supported_bits:
                 delattr(self, f'lut{bit}')
 
-    def forward(self, x, w_bits=None):
-        if w_bits is None:
-            w_bits = self.default_bit
+    def forward(self, x, **kwargs):
+        # if w_bits is None:
+        #     w_bits = self.selected_bit
 
-        if w_bits not in self.supported_bits:
-            raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
+        # if w_bits not in self.supported_bits:
+        #     raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
+
+        w_bits = self.selected_bit
 
         if x.numel() // x.shape[-1] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
@@ -79,6 +81,12 @@ class AnyPrecisionLinear(nn.Module):
             x += self.bias
 
         return x
+
+    def change_bits(self, w_bits):
+        if w_bits not in self.supported_bits:
+            raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
+
+        self.selected_bit = w_bits
 
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}'

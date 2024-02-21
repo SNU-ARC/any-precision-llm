@@ -14,6 +14,16 @@ if __name__ == '__main__':
 
     input_context = "Yellow cat"
     input_ids = tokenizer.encode(input_context, return_tensors="pt")
+
+
+    print("=============== generation with 4 bits ===============")
+    model.change_bits(4)
+    output = model.generate(input_ids.cuda(), max_length=256)
+    output_text = tokenizer.decode(output[0], skip_special_tokens=True)
+    print(output_text)
+
+    print("=============== generation with 3 bits ===============")
+    model.change_bits(3)
     output = model.generate(input_ids.cuda(), max_length=256)
     output_text = tokenizer.decode(output[0], skip_special_tokens=True)
     print(output_text)

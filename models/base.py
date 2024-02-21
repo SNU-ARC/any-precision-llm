@@ -96,40 +96,40 @@ class BaseAPForCausalLM(nn.Module):
 
         return config
 
-    @classmethod
-    def from_pretrained(
-        self,
-        model_path,
-        model_type,
-        torch_dtype: torch.dtype = torch.float16,
-        trust_remote_code=True,
-        safetensors=False,
-        device_map=None,
-        **model_init_kwargs,
-    ):
-        # Get weights path and quant config : TODO what is this parameters?
-        model_weights_path, config = self._load_config(
-            self, model_path, "", safetensors, trust_remote_code=trust_remote_code
-        )
+    # @classmethod
+    # def from_pretrained(
+    #     self,
+    #     model_path,
+    #     model_type,
+    #     torch_dtype: torch.dtype = torch.float16,
+    #     trust_remote_code=True,
+    #     safetensors=False,
+    #     device_map=None,
+    #     **model_init_kwargs,
+    # ):
+    #     # Get weights path and quant config : TODO what is this parameters?
+    #     model_weights_path, config = self._load_config(
+    #         self, model_path, "", safetensors, trust_remote_code=trust_remote_code
+    #     )
 
-        # If not quantized, must load with AutoModelForCausalLM
-        model = AutoModelForCausalLM.from_pretrained(
-            model_weights_path,
-            trust_remote_code=trust_remote_code,
-            torch_dtype=torch_dtype,
-            use_safetensors=safetensors,
-            device_map=device_map,
-            **model_init_kwargs,
-        )
+    #     # If not quantized, must load with AutoModelForCausalLM
+    #     model = AutoModelForCausalLM.from_pretrained(
+    #         model_weights_path,
+    #         trust_remote_code=trust_remote_code,
+    #         torch_dtype=torch_dtype,
+    #         use_safetensors=safetensors,
+    #         device_map=device_map,
+    #         **model_init_kwargs,
+    #     )
 
-        model.eval()
+    #     model.eval()
 
-        return self(
-            model,
-            model_type,
-            is_quantized=False,
-            config=config,
-        )
+    #     return self(
+    #         model,
+    #         model_type,
+    #         is_quantized=False,
+    #         config=config,
+    #     )
 
     @classmethod
     def from_quantized(
@@ -245,3 +245,11 @@ class BaseAPForCausalLM(nn.Module):
 
         torch.cuda.empty_cache()
         gc.collect()
+
+    def change_bits(self, changed_bits):
+        layers = self.get_model_layers(self.model)
+        for layer in layers:
+            # Get every linear layer in a block and refine bits
+            named_linears = get_AP_linears(layer)
+            for _, module in named_linears.items():
+                module.change_bits(changed_bits)
