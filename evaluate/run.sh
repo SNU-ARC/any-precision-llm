@@ -5,5 +5,5 @@
 
 # Results will be dumped to `results.json` in the current directory.
 
-CUDA_VISIBLE_DEVICES=0 python run_eval.py
+PYTHONPATH=.. CUDA_VISIBLE_DEVICES=0 python run_eval.py
 

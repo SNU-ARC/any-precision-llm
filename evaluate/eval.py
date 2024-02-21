@@ -5,7 +5,6 @@ from helpers.utils import vprint, logprint, model_name_parser, base_model_name_t
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import os
 from models.opt import OPTAPForCausalLM
-import json
 
 
 # from algorithms.SqueezeLLM.llama import load_quant as sqllm_load_quant
@@ -26,8 +25,6 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
     logprint(verbose, "Loading tokenizer and model...")
 
     if 'anyprec-' in model_path:
-        params = model_name_parser(model_path)
-        model_repo = base_model_name_to_hf_repo_name(params['base_model'])
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = OPTAPForCausalLM.from_quantized(model_path, supported_bits=[3, 4, 5, 6, 7, 8]).cuda()
     else:
@@ -35,7 +32,7 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,
                                                      trust_remote_code=True).cuda()
 
-    #logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
+    # logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
 
     tokenizer_type = get_tokenizer_type(model_path)
 
@@ -63,41 +60,55 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
     Note that the perplexity scores are calculated over non-overlapping chunks of the test set.
     """
 
+    if hasattr(model, 'change_bits'):
+        is_anyprec = True
+    else:
+        is_anyprec = False
+
     model.eval()
 
     results = {}
-    for testcase_name in testcases:
-        vprint(verbose, f"---------------------- {testcase_name} ----------------------")
 
-        input_tokens = load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
+    for bit in range(3, 9):
+        if is_anyprec:
+            logprint(verbose, f"Setting model precision to {bit}-bit...")
+            model.change_bits(bit)
 
-        #input_tokens.to(model.device)
-        input_tokens.to('cuda')
+        for testcase_name in testcases:
+            vprint(verbose, f"---------------------- {testcase_name} ----------------------")
 
-        logprint(verbose, "Calculating perplexity...")
+            input_tokens = load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
 
-        seq_len = input_tokens.input_ids.size(1)
-        nsamples = (seq_len + chunk_size - 1) // chunk_size  # ceil(seq_len / chunk_size)
+            # input_tokens.to(model.device)
+            input_tokens.to('cuda')
 
-        neg_log_likelihoods = []
-        for i in tqdm(range(nsamples), disable=not verbose):
-            begin_loc = i * chunk_size
+            logprint(verbose, "Calculating perplexity...")
 
-            input_ids = input_tokens.input_ids[:, begin_loc:begin_loc + chunk_size]
+            seq_len = input_tokens.input_ids.size(1)
+            nsamples = (seq_len + chunk_size - 1) // chunk_size  # ceil(seq_len / chunk_size)
 
-            with torch.no_grad():
-                outputs = model(input_ids, labels=input_ids)
+            neg_log_likelihoods = []
+            for i in tqdm(range(nsamples), disable=not verbose):
+                begin_loc = i * chunk_size
 
-                # loss is calculated using CrossEntropyLoss which averages over valid labels
-                # N.B. the model only calculates loss over trg_len - 1 labels, because it internally shifts the labels
-                # to the left by 1.
-                neg_log_likelihood = outputs.loss
-                neg_log_likelihoods.append(neg_log_likelihood)
+                input_ids = input_tokens.input_ids[:, begin_loc:begin_loc + chunk_size]
 
-        ppl = torch.exp(torch.stack(neg_log_likelihoods).mean())
-        logprint(verbose, f"Perplexity: {ppl.item()}")
+                with torch.no_grad():
+                    outputs = model(input_ids, labels=input_ids)
 
-        results[testcase_name] = ppl.item()
+                    # loss is calculated using CrossEntropyLoss which averages over valid labels
+                    # N.B. the model only calculates loss over trg_len - 1 labels,
+                    # because it internally shifts the labels to the left by 1.
+                    neg_log_likelihood = outputs.loss
+                    neg_log_likelihoods.append(neg_log_likelihood)
+
+            ppl = torch.exp(torch.stack(neg_log_likelihoods).mean())
+            logprint(verbose, f"Perplexity: {ppl.item()}")
+
+            results[f"{bit}-bit:{testcase_name}"] = ppl.item()
+
+        if not is_anyprec:
+            break
 
     return results
 
