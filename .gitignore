@@ -165,3 +165,8 @@ cache/
 # Plugin build directories
 modules/kernels/build/*
 modules/kernels/any_precision_ext.egg-info/*
+
+# Evaluate directories
+evaluate/helpers/*
+evaluate/input_tokens_cache/*
+evaluate/results.json
