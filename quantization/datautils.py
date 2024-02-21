@@ -7,14 +7,14 @@ import logging
 def get_wikitext2(split):
     assert split in ['train', 'validation', 'test'], f"Unknown split {split} for wikitext2"
 
-    data = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
+    data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     return data['text']
 
 
 def get_ptb(split, slice_unk=True):
     assert split in ['train', 'validation', 'test'], f"Unknown split {split} for ptb"
 
-    data = load_dataset('ptb_text_only', 'penn_treebank', split='train')
+    data = load_dataset('ptb_text_only', 'penn_treebank', split=split)
     data_list = data['sentence']
 
     if slice_unk:
