@@ -26,12 +26,10 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
     logprint(verbose, "Loading tokenizer and model...")
 
     if 'anyprec-' in model_path:
-        assert model_path.endswith('.pt'), "Anyprec model path must end with .pt"
-        params = model_name_parser(model_path[:-3])
+        params = model_name_parser(model_path)
         model_repo = base_model_name_to_hf_repo_name(params['base_model'])
-        tokenizer = AutoTokenizer.from_pretrained(model_repo)
-        config = AutoConfig.from_pretrained(model_repo, trust_remote_code=True)
-        model = OPTAPForCausalLM.from_quantized(model_path, model_repo,config.max_position_embeddings, supported_bits=[3, 4, 5, 6, 7, 8]).cuda()
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = OPTAPForCausalLM.from_quantized(model_path, supported_bits=[3, 4, 5, 6, 7, 8]).cuda()
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,

@@ -74,7 +74,7 @@ def _permute_bitmaps_int32(bitmaps):
     return bitmaps.reshape(-1, 4).view(np.int32).reshape(w_bits, N, total_bytes // 4)
 
 
-def process_layer_data(args):
+def _process_layer_data(args):
     layer_idx, lut_path, model_type, layers_name, module_real_names, parent_precision, seed_precision = args
     layer_data = {}
 
@@ -114,11 +114,20 @@ def process_layer_data(args):
     return layer_idx, layer_data
 
 
-def pack(model, lut_path, output_model_path, seed_precision, parent_precision, model_type=None, cpu_count=None):
+def pack(model,
+         tokenizer,
+         lut_path,
+         output_model_path,
+         seed_precision,
+         parent_precision,
+         model_type=None,
+         cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
     model = utils.load_model(model)
+    tokenizer = utils.load_tokenizer(tokenizer)
+
     if model_type is None:
         model_type = utils.guess_model_type(model)
     state_dict = model.state_dict()
@@ -132,20 +141,29 @@ def pack(model, lut_path, output_model_path, seed_precision, parent_precision, m
                  layer_idx in range(num_layers)]
 
     with Pool(cpu_count) as pool:
-        for layer_idx, layer_data in tqdm(pool.imap(process_layer_data, args_list), total=num_layers):
+        for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers):
             for key, value in layer_data.items():
                 if '.qweight' in key:
                     del state_dict[key.replace('.qweight', '.weight')]  # Delete original weights
                 state_dict[key] = torch.from_numpy(value)  # Update with modified weights
 
-    if not output_model_path.endswith('.pt'):
-        output_model_path += '.pt'
-    os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
-    torch.save(state_dict, output_model_path)
+    # get original model config
+    config = model.config
+
+    # add new config parameters
+    config.anyprec_seed_precision = seed_precision
+    config.anyprec_parent_precision = parent_precision
+    config.anyprec_model_type = model_type
+
+    os.makedirs(output_model_path, exist_ok=True)
+    torch.save(state_dict, os.path.join(output_model_path, 'pytorch_model.bin'))
+    tokenizer.save_pretrained(output_model_path)
+    config.save_pretrained(output_model_path)
     logging.info(f"Model saved to {output_model_path}")
 
 
 if __name__ == '__main__':
     pack('facebook/opt-1.3b',
+         'facebook/opt-1.3b',
          '../cache/parent/(opt-1.3b)-w8_orig3-c4_s100_blk512',
          '../models/test.pt', 3, 8)

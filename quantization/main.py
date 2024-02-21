@@ -33,7 +33,6 @@ def quantize_any_precision(model,
                            cpu_count=os.cpu_count(),
                            recalculate_gradients=False,
                            recalculate_seed=False,
-                           fakepack=True,
                            ):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
@@ -59,10 +58,8 @@ def quantize_any_precision(model,
 
     # ------------------- Load model -------------------
 
-    if isinstance(model, str):
-        model = AutoModelForCausalLM.from_pretrained(model, trust_remote_code=True)
-    else:
-        assert isinstance(model, AutoModelForCausalLM), "model must be a string or a transformers model"
+    model = utils.load_model(model)
+    tokenizer = utils.load_tokenizer(model_string)
 
     model_type = model_type if model_type is not None else utils.guess_model_type(model)
 
@@ -81,6 +78,7 @@ def quantize_any_precision(model,
         # this will overwrite the gradients cache if it already exists
         model_gradients = gradients.get_gradients(
             model=model,
+            tokenizer=tokenizer,
             dataset=dataset,
             seq_len=seq_len,
             num_examples=num_examples,
@@ -145,15 +143,16 @@ def quantize_any_precision(model,
     logging.info("------------------- Pack -------------------")
 
     model_output_path = (f"{cache_dir}/packed/anyprec-({model_name})-w{parent_precision}_orig{seed_precision}"
-                         f"-{dataset}_s{num_examples}_blk{seq_len}.pt")
+                         f"-{dataset}_s{num_examples}_blk{seq_len}")
 
-    if os.path.exists(model_output_path):
-        logging.info(f"Detected existing packed model at {model_output_path}.")
+    # check for non-empty directory
+    if os.path.exists(model_output_path) and os.path.isdir(model_output_path) and os.listdir(model_output_path):
+        logging.info(f"Model output path {model_output_path} already exists and is not empty.")
         input(f"To proceed and overwrite {model_output_path}, press Enter. Else, press Ctrl+C to abort.")
-        os.remove(model_output_path)
 
     pack.pack(
         model=model,
+        tokenizer=tokenizer,
         lut_path=parent_cache_path,
         output_model_path=model_output_path,
         seed_precision=seed_precision,
