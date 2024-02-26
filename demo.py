@@ -1,4 +1,4 @@
-from models.auto import AutoAPLoader
+from models import AutoAPLoader
 from transformers import AutoTokenizer
 import logging
 
