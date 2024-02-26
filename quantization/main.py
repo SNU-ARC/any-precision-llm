@@ -62,7 +62,7 @@ def quantize_any_precision(model,
     model = utils.load_model(model)
     tokenizer = utils.load_tokenizer(model_string)
 
-    analyzer = get_analyzer(model_type)
+    analyzer = get_analyzer(model)
 
     # ------------------- Gradients -------------------
 
