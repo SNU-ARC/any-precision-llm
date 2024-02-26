@@ -1,32 +1,4 @@
 from transformers import AutoModelForCausalLM, PreTrainedModel, PreTrainedTokenizer, AutoTokenizer
-import logging
-
-
-def guess_model_type(model):
-    assert isinstance(model, PreTrainedModel), f"Expected model to be a PreTrainedModel, got {type(model)}"
-    class_name = model.__class__.__name__
-
-    class_name_lower = class_name.lower()
-
-    if "opt" in class_name_lower:
-        model_type = "opt"
-    elif "llama" in class_name_lower:
-        model_type = "llama"
-    elif "mistral" in class_name_lower:
-        model_type = "mistral"
-    elif "phi" in class_name_lower:
-        model_type = "phi-2"
-    elif "gemma" in class_name_lower:
-        model_type = "gemma"
-    else:
-        raise RuntimeError(f"Failed to guess model type from model object: {class_name}")
-
-    # Convert the above to logs
-    logging.info(f"Guessing model type from model object")
-    logging.info(f"Class name: {class_name}")
-    logging.info(f"Guesed model type: {model_type}")
-
-    return model_type
 
 
 def load_model(model_str_or_model):

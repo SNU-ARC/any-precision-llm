@@ -5,7 +5,6 @@ import seed
 import os
 import os.path
 import shutil
-from transformers import AutoModelForCausalLM
 import torch
 import argparse
 import logging
@@ -13,7 +12,7 @@ import logging
 from config import *
 import utils
 
-from analyzer import OPTAnalyzer
+from analyzer import get_analyzer
 
 import gradients
 import upscale
@@ -63,9 +62,7 @@ def quantize_any_precision(model,
     model = utils.load_model(model)
     tokenizer = utils.load_tokenizer(model_string)
 
-    model_type = model_type if model_type is not None else utils.guess_model_type(model)
-
-    analyzer = OPTAnalyzer(model)
+    analyzer = get_analyzer(model_type)
 
     # ------------------- Gradients -------------------
 
