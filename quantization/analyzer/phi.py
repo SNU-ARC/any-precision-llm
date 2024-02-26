@@ -1,4 +1,4 @@
-from auto import ModelAnalyzer
+from .base import ModelAnalyzer
 
 
 class Phi2Analyzer(ModelAnalyzer):

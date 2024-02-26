@@ -4,7 +4,7 @@ import os
 import torch
 import logging
 from multiprocessing import Pool
-from analyzer.auto import get_analyzer
+from analyzer import get_analyzer
 
 import utils
 

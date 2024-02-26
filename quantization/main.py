@@ -13,7 +13,7 @@ import logging
 from config import *
 import utils
 
-from analyzer.auto import OPTAnalyzer
+from analyzer import OPTAnalyzer
 
 import gradients
 import upscale

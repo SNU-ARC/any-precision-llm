@@ -1,4 +1,4 @@
-from auto import ModelAnalyzer
+from .base import ModelAnalyzer
 
 
 class LlamaAnalyzer(ModelAnalyzer):

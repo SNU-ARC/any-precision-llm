@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from tqdm import tqdm
 import utils
-from analyzer.auto import get_analyzer
+from analyzer import get_analyzer
 
 
 def _kmeans_fit(args_tuple):

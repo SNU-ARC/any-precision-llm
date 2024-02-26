@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import numba
 import transformers
-from analyzer.auto import get_analyzer
+from analyzer import get_analyzer
 
 import utils
 

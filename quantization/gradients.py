@@ -6,7 +6,7 @@ import utils
 import argparse
 import logging
 from config import *
-from analyzer.auto import get_analyzer
+from analyzer import get_analyzer
 
 import datautils
 
