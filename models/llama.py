@@ -5,28 +5,26 @@ from transformers.models.llama.modeling_llama import (
     LlamaForCausalLM as OldLlamaForCausalLM
 )
 
+
 class LlamaAPForCausalLM(BaseAPForCausalLM):
-    layer_type = "LlamaDecoderLayer"
-    max_new_tokens_key = "max_position_embeddings"
+    @property
+    def layer_type(self):
+        return "LlamaDecoderLayer"
 
-    @staticmethod
-    def fuse_layers(model: OldLlamaForCausalLM):
-        #fuser = LlamaFuser(model)
-        #fuser.fuse_transformer()
-        fuser = None
-        pass
+    @property
+    def max_new_tokens_key(self):
+        return "max_position_embeddings"
 
-    @staticmethod
-    def get_model_layers(model: OldLlamaForCausalLM):
-        return model.model.layers
+    def fuse_layers(self):
+        raise NotImplementedError("Llama does not support layer fusion")
 
-    @staticmethod
-    def get_act_for_scaling(module: OldLlamaDecoderLayer):
+    def get_model_layers(self):
+        return self.model.model.layers
+
+    def get_act_for_scaling(self):
         return dict(
             is_scalable=False
         )
 
-    @staticmethod
-    def move_embed(model: OldLlamaForCausalLM, device: str):
-        model.model.embed_tokens = model.model.embed_tokens.to(device)
-
+    def move_embed(self, device: str):
+        self.model.model.embed_tokens = self.model.model.embed_tokens.to(device)

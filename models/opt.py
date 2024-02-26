@@ -6,21 +6,25 @@ from transformers.models.opt.modeling_opt import (
 
 
 class OPTAPForCausalLM(BaseAPForCausalLM):
-    layer_type = "OPTDecoderLayer"
-    max_new_tokens_key = "max_position_embeddings"
+    @property
+    def layer_type(self):
+        return "OPTDecoderLayer"
 
-    @staticmethod
-    def get_model_layers(model: OldOPTForCausalLM):
-        return model.model.decoder.layers
+    @property
+    def max_new_tokens_key(self):
+        return "max_position_embeddings"
 
-    @staticmethod
-    def get_act_for_scaling(module: OldOPTDecoderLayer):
+    def fuse_layers(self):
+        raise NotImplementedError("OPT does not support layer fusion")
+
+    def get_model_layers(self):
+        return self.model.model.decoder.layers
+
+    def get_act_for_scaling(self):
         return dict(
             is_scalable=False
         )
 
-    @staticmethod
-    def move_embed(model: OldOPTForCausalLM, device: str):
-        model.model.decoder.embed_tokens = model.model.decoder.embed_tokens.to(device)
-        model.model.decoder.embed_positions = model.model.decoder.embed_positions.to(device)
-
+    def move_embed(self, device: str):
+        self.model.model.decoder.embed_tokens = self.model.model.decoder.embed_tokens.to(device)
+        self.model.model.decoder.embed_positions = self.model.model.decoder.embed_positions.to(device)

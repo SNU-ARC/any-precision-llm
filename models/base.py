@@ -13,19 +13,23 @@ from accelerate.big_modeling import (
     load_checkpoint_and_dispatch,
 )
 import os
+from abc import ABC, abstractmethod
 from .AnyPrecisionLinear import AnyPrecisionLinear
+
 
 def get_named_linears(module):
     return {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
 
+
 def get_AP_linears(module):
     return {name: m for name, m in module.named_modules() if isinstance(m, AnyPrecisionLinear)}
+
 
 def set_op_by_name(layer, name, new_module):
     levels = name.split('.')
     if len(levels) > 1:
         mod_ = layer
-        for l_idx in range(len(levels)-1):
+        for l_idx in range(len(levels) - 1):
             if levels[l_idx].isdigit():
                 mod_ = mod_[int(levels[l_idx])]
             else:
@@ -34,9 +38,10 @@ def set_op_by_name(layer, name, new_module):
     else:
         setattr(layer, name, new_module)
 
-class BaseAPForCausalLM(nn.Module):
+
+class BaseAPForCausalLM(nn.Module, ABC):
     def __init__(
-        self, model, model_type, is_quantized, config
+            self, model, model_type, is_quantized, config
     ):
         super().__init__()
         self.model: PreTrainedModel = model
@@ -56,104 +61,32 @@ class BaseAPForCausalLM(nn.Module):
             return self.model.generate(*args, **kwargs)
 
     @staticmethod
-    def fuse_layers(model):
-        pass
-
     def _load_config(
-        self,
-        model_path,
-        trust_remote_code=True,
-        max_new_tokens=4096,
+            model_path,
+            trust_remote_code=True,
     ):
-        # # [STEP 1] Download model if path is not a directory
-        # if not os.path.isdir(model_path):
-        #     ignore_patterns = ["*msgpack*", "*h5*", "optimizer.pt"]
-        #     if safetensors:
-        #         ignore_patterns.extend(["*.pt*", "*.bin*", "consolidated*"])
-        #     else:
-        #         ignore_patterns.append("*.safetensors*")
-
-        #     model_path = snapshot_download(model_path, ignore_patterns=ignore_patterns)
-
         config = AutoConfig.from_pretrained(model_path, trust_remote_code=trust_remote_code)
-
-        # # Load model config and set max generation length
-        # if max_new_tokens is None and hasattr(self, "max_new_tokens_key"):
-        #     config = AutoConfig.from_pretrained(
-        #         model_path, trust_remote_code=trust_remote_code, **config_kwargs
-        #     )
-        #     config.max_new_tokens = getattr(config, self.max_new_tokens_key, 2048)
-        #     # To add the generate support for Multi-modal models as well
-        #     if hasattr(config, "text_config"):
-        #         config.text_config.max_new_tokens = getattr(
-        #             config, self.max_new_tokens_key, 2048
-        #         )
-        # else:
-        #     max_new_tokens = 2048 if max_new_tokens is None else max_new_tokens
-        #     config = AutoConfig.from_pretrained(
-        #         model_path, trust_remote_code=trust_remote_code, **config_kwargs
-        #     )
-        #     config.max_new_tokens = max_new_tokens
-
         return config
-
-    # @classmethod
-    # def from_pretrained(
-    #     self,
-    #     model_path,
-    #     model_type,
-    #     torch_dtype: torch.dtype = torch.float16,
-    #     trust_remote_code=True,
-    #     safetensors=False,
-    #     device_map=None,
-    #     **model_init_kwargs,
-    # ):
-    #     # Get weights path and quant config : TODO what is this parameters?
-    #     model_weights_path, config = self._load_config(
-    #         self, model_path, "", safetensors, trust_remote_code=trust_remote_code
-    #     )
-
-    #     # If not quantized, must load with AutoModelForCausalLM
-    #     model = AutoModelForCausalLM.from_pretrained(
-    #         model_weights_path,
-    #         trust_remote_code=trust_remote_code,
-    #         torch_dtype=torch_dtype,
-    #         use_safetensors=safetensors,
-    #         device_map=device_map,
-    #         **model_init_kwargs,
-    #     )
-
-    #     model.eval()
-
-    #     return self(
-    #         model,
-    #         model_type,
-    #         is_quantized=False,
-    #         config=config,
-    #     )
 
     @classmethod
     def from_quantized(
-        self,
-        quant_model_path,
-        max_new_tokens=None,
-        torch_dtype=torch.float16,
-        trust_remote_code=True,
-        safetensors=True,
-        is_quantized=True,
-        fuse_layers=False,
-        device_map="balanced",
-        offload_folder=None,
-        exclude_modules = None,
-        supported_bits=None
+            cls,
+            quant_model_path,
+            max_new_tokens=None,
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            safetensors=True,
+            is_quantized=True,
+            fuse_layers=False,
+            device_map="balanced",
+            offload_folder=None,
+            exclude_modules=None,
+            supported_bits=None
     ):
-
         # [STEP 1-2] Load weights path and configs
-        config = self._load_config(
-            self,
+        config = cls._load_config(
             quant_model_path,
             trust_remote_code,
-            max_new_tokens=max_new_tokens,
         )
 
         # [STEP 3] Load model : TODO fix flash attention to option
@@ -165,15 +98,20 @@ class BaseAPForCausalLM(nn.Module):
                 # attn_implementation="flash_attention_2",
             )
 
-        # Prepare AnyPrecisionLinear layers, replace nn.Linear
-        self._load_quantized_modules(
-            self,
+        APModel = cls(
             model,
+            config.model_type,
+            is_quantized=is_quantized,
+            config=config
+        )
+
+        # Prepare AnyPrecisionLinear layers, replace nn.Linear
+        APModel._load_quantized_modules(
             exclude_modules=exclude_modules,
             supported_bits=supported_bits,
         )
 
-        model.tie_weights()
+        APModel.tie_weights()
 
         # Look for the weights file and load it
         for file in os.listdir(quant_model_path):
@@ -189,32 +127,27 @@ class BaseAPForCausalLM(nn.Module):
         # loads the weights into modules and distributes
         # across available devices automatically
         load_checkpoint_and_dispatch(
-            model,
+            APModel.model,
             checkpoint=quant_model_path,
             device_map=device_map,
-            no_split_module_classes=[self.layer_type],
+            no_split_module_classes=[APModel.layer_type],
             offload_folder=offload_folder,
             dtype=torch_dtype,
         )
 
         # Dispath to devices
         if fuse_layers:
-            self.fuse_layers(model)
+            APModel.fuse_layers()
 
-        self.refine_maxbits_linears(self, model)
+        APModel.refine_maxbits_linears()
 
-        return self(
-            model,
-            config.model_type,
-            is_quantized=is_quantized,
-            config=config
-        )
+        return APModel
 
     def _load_quantized_modules(
-        self, model, exclude_modules = None, supported_bits=None
+            self, exclude_modules=None, supported_bits=None
     ):
         # Get blocks of model
-        layers = self.get_model_layers(model)
+        layers = self.get_model_layers()
 
         if exclude_modules is None:
             exclude_modules = ['lm_head']
@@ -240,11 +173,9 @@ class BaseAPForCausalLM(nn.Module):
             torch.cuda.empty_cache()
             gc.collect()
 
-    def refine_maxbits_linears(
-        self, model
-    ):
+    def refine_maxbits_linears(self):
         # Get blocks of model
-        layers = self.get_model_layers(model)
+        layers = self.get_model_layers()
         for layer in tqdm(layers, desc="Replacing layers..."):
             # Get every linear layer in a block and refine bits
             named_linears = get_AP_linears(layer)
@@ -255,9 +186,39 @@ class BaseAPForCausalLM(nn.Module):
         gc.collect()
 
     def change_bits(self, changed_bits):
-        layers = self.get_model_layers(self.model)
+        layers = self.get_model_layers()
         for layer in layers:
             # Get every linear layer in a block and refine bits
             named_linears = get_AP_linears(layer)
             for _, module in named_linears.items():
                 module.change_bits(changed_bits)
+
+    def tie_weights(self):
+        if hasattr(self.model, "tie_weights"):
+            self.model.tie_weights()
+
+    @abstractmethod
+    def get_model_layers(self):
+        pass
+
+    @abstractmethod
+    def fuse_layers(self):
+        pass
+
+    @abstractmethod
+    def get_act_for_scaling(self):
+        pass
+
+    @abstractmethod
+    def move_embed(self, device: str):
+        pass
+
+    @property
+    @abstractmethod
+    def layer_type(self):
+        pass
+
+    @property
+    @abstractmethod
+    def max_new_tokens_key(self):
+        pass
