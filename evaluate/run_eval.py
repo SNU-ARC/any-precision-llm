@@ -38,8 +38,10 @@ skipped_models = []  # models that are skipped will be stored here
 for model_path in model_paths:
     model_name = os.path.basename(model_path)
     model_jobs = {'to_print': [], 'ppl': [], 'lm-eval': []}
-    datasets_with_results = [dataset for dataset in datasets
-                             if dataset in all_results.get(model_name, {}).get('ppl', {})]
+    #datasets_with_results = [dataset for dataset in datasets
+    #                         if dataset in all_results.get(model_name, {}).get('ppl', {})]
+    # TODO: fix logic
+    datasets_with_results = [dataset for dataset in datasets if all_results.get(model_name)]
     if not args.redo:
         model_jobs['ppl'] = [testcase for testcase in datasets if testcase not in datasets_with_results]
         if not model_jobs['ppl'] and not model_jobs['lm-eval']:
