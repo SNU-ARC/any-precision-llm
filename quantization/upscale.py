@@ -351,7 +351,7 @@ def upscale(model, seed_precision, parent_precision, model_type, seed_parameters
     else:
         assert isinstance(gradients, list), "gradients should be a string or a list"
 
-    module_names = utils.get_module_names(model_type)
+    module_names = utils.get_sequential(model_type)
 
     # Format the weights and gradients
     # TODO: check that this doesn't use double the memory

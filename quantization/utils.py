@@ -35,17 +35,6 @@ def get_modules(layer, model_type):
         raise NotImplementedError(f"Unsupported model type {model_type}")
 
 
-def get_module_names(model_type):
-    if model_type == "opt":
-        return ["q", "k", "v", "o", "up", "down"]
-    elif model_type in ("mistral", "llama", "gemma"):
-        return ["q", "k", "v", "o", "gate", "up", "down"]
-    elif model_type == "phi-2":
-        return ["q", "k", "v", "o", "up", "down"]
-    else:
-        raise NotImplementedError(f"Model type {model_type} not supported")
-
-
 def get_sequential(model_type):
     if model_type == "opt":
         return [
@@ -113,34 +102,10 @@ def get_layers_name(model_type):
         raise NotImplementedError(f"Model type {model_type} not supported")
 
 
-def get_embedding(model, model_type):
-    _model = get_model(model, model_type)
-    if model_type == "opt":
-        return [_model.embed_tokens, _model.embed_positions]
-    elif model_type in ("llama", "mistral", "gemma"):
-        return [_model.embed_tokens]
-    elif model_type == "phi-2":
-        return [_model.embed_tokens]
-    else:
-        raise NotImplementedError(f"Model type {model_type} not supported")
-
-
-def get_norm(model, model_type):
-    _model = get_model(model, model_type)
-    if model_type == "opt":
-        return _model.final_layer_norm
-    elif model_type in ("llama", "mistral", "gemma"):
-        return _model.norm
-    elif model_type == "phi-2":
-        return _model.final_layer_norm
-    else:
-        raise NotImplementedError(f"Model type {model_type} not supported")
-
-
 def get_model_weights(model, model_type):
     layers = get_layers(model, model_type)
     model_layers = []
-    module_names = get_module_names(model_type)
+    module_names = get_sequential(model_type)
 
     for layer in layers:
         layer_data = {}
