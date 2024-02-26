@@ -17,7 +17,7 @@ def get_analyzer(model):
     elif model.config.architectures[0] == "MistralForCausalLM":
         return MistralAnalyzer(model)
     else:
-        logging.warning((f"Attempting to use AutoAnalyzer to quantize unknown model type:",
+        logging.warning((f"Attempting to use AutoAnalyzer to quantize unknown model type:"
                          f" {model.config.architectures[0]}"))
         logging.warning("This may not work as expected!")
         return AutoAnalyzer(model)
