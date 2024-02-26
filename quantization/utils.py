@@ -3,7 +3,7 @@ import logging
 
 
 def get_modules(layer, model_type):
-    if model_type in ('llama', 'mistral'):
+    if model_type in ('llama', 'mistral', 'gemma'):
         return [
             layer.self_attn.q_proj,
             layer.self_attn.k_proj,
@@ -38,9 +38,7 @@ def get_modules(layer, model_type):
 def get_module_names(model_type):
     if model_type == "opt":
         return ["q", "k", "v", "o", "up", "down"]
-    elif model_type == "mistral":
-        return ["q", "k", "v", "o", "gate", "up", "down"]
-    elif model_type == "llama":
+    elif model_type in ("mistral", "llama", "gemma"):
         return ["q", "k", "v", "o", "gate", "up", "down"]
     elif model_type == "phi-2":
         return ["q", "k", "v", "o", "up", "down"]
@@ -58,17 +56,7 @@ def get_sequential(model_type):
             'fc1',
             'fc2',
         ]
-    elif model_type == "mistral":
-        return [
-            'self_attn.q_proj',
-            'self_attn.k_proj',
-            'self_attn.v_proj',
-            'self_attn.o_proj',
-            'mlp.gate_proj',
-            'mlp.up_proj',
-            'mlp.down_proj',
-        ]
-    elif model_type == "llama":
+    elif model_type in ("mistral", "llama", "gemma"):
         return [
             'self_attn.q_proj',
             'self_attn.k_proj',
@@ -94,9 +82,7 @@ def get_sequential(model_type):
 def get_model(model, model_type):
     if model_type == 'opt':
         return model.model.decoder
-    elif model_type == 'llama':
-        return model.model
-    elif model_type == 'mistral':
+    elif model_type in ('llama', 'mistral', 'gemma'):
         return model.model
     elif model_type == 'phi-2':
         return model.model
@@ -108,9 +94,7 @@ def get_layers(model, model_type):
     _model = get_model(model, model_type)
     if model_type == 'opt':
         return _model.layers
-    elif model_type == 'llama':
-        return _model.layers
-    elif model_type == 'mistral':
+    elif model_type in ('llama', 'mistral', 'gemma'):
         return _model.layers
     elif model_type == 'phi-2':
         return _model.layers
@@ -121,9 +105,7 @@ def get_layers(model, model_type):
 def get_layers_name(model_type):
     if model_type == 'opt':
         return 'model.decoder.layers'
-    elif model_type == 'llama':
-        return 'model.layers'
-    elif model_type == 'mistral':
+    elif model_type in ('llama', 'mistral', 'gemma'):
         return 'model.layers'
     elif model_type == 'phi-2':
         return 'model.layers'
@@ -135,9 +117,7 @@ def get_embedding(model, model_type):
     _model = get_model(model, model_type)
     if model_type == "opt":
         return [_model.embed_tokens, _model.embed_positions]
-    elif model_type == "llama":
-        return [_model.embed_tokens]
-    elif model_type == "mistral":
+    elif model_type in ("llama", "mistral", "gemma"):
         return [_model.embed_tokens]
     elif model_type == "phi-2":
         return [_model.embed_tokens]
@@ -149,9 +129,7 @@ def get_norm(model, model_type):
     _model = get_model(model, model_type)
     if model_type == "opt":
         return _model.final_layer_norm
-    elif model_type == "llama":
-        return _model.norm
-    elif model_type == "mistral":
+    elif model_type in ("llama", "mistral", "gemma"):
         return _model.norm
     elif model_type == "phi-2":
         return _model.final_layer_norm
@@ -193,6 +171,8 @@ def guess_model_type(model):
         model_type = "mistral"
     elif "phi" in class_name_lower:
         model_type = "phi-2"
+    elif "gemma" in class_name_lower:
+        model_type = "gemma"
     else:
         raise RuntimeError(f"Failed to guess model type from model object: {class_name}")
 
