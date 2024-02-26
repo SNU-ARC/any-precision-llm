@@ -1,15 +1,16 @@
 import torch
 import torch.nn as nn
+
 try:
     from any_precision_ext import matmul_kbit, dequant_kbit
 except:
     exit('Please install any precision CUDA kernel extension from modules/kernels.')
 
+
 class AnyPrecisionLinear(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, model_supported_bits=None, supported_bits=None, device=None, dtype=None):
+    def __init__(self, in_features, out_features, model_supported_bits, bias=True, supported_bits=None, device=None,
+                 dtype=None):
         super().__init__()
-        if model_supported_bits is None:
-            model_supported_bits = [3, 4, 5, 6, 7, 8]
         if supported_bits is None:
             supported_bits = model_supported_bits
         if not isinstance(supported_bits, list):
@@ -48,7 +49,7 @@ class AnyPrecisionLinear(nn.Module):
             self.register_buffer(
                 "bias",
                 torch.empty(
-                    (out_features, ),
+                    (out_features,),
                     dtype=torch.float16,
                     device=device
                 ),

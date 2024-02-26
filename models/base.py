@@ -41,7 +41,7 @@ def set_op_by_name(layer, name, new_module):
 
 class BaseAPForCausalLM(nn.Module, ABC):
     def __init__(
-            self, model, model_type, is_quantized, config
+            self, model, model_type, is_quantized, config, supported_bits, model_supported_bits
     ):
         super().__init__()
         self.model: PreTrainedModel = model
@@ -49,6 +49,8 @@ class BaseAPForCausalLM(nn.Module, ABC):
         self.is_quantized: bool = is_quantized
         self.search_result = None
         self.config: PretrainedConfig = config
+        self.supported_bits = supported_bits
+        self.model_supported_bits = model_supported_bits
 
     def to(self, device: str):
         return self.model.to(device)
@@ -98,20 +100,29 @@ class BaseAPForCausalLM(nn.Module, ABC):
                 # attn_implementation="flash_attention_2",
             )
 
-        APModel = cls(
+        model_supported_bits = list(range(config.anyprec_seed_precision,
+                                          config.anyprec_parent_precision + 1))
+        if supported_bits is None:
+            supported_bits = model_supported_bits
+        else:
+            assert all(bit in model_supported_bits for bit in supported_bits), \
+                f"Supported bits {supported_bits} must be a subset of model supported bits {model_supported_bits}"
+
+        ap_model = cls(
             model,
             config.model_type,
             is_quantized=is_quantized,
-            config=config
+            config=config,
+            supported_bits=supported_bits,
+            model_supported_bits=model_supported_bits
         )
 
         # Prepare AnyPrecisionLinear layers, replace nn.Linear
-        APModel._load_quantized_modules(
+        ap_model._load_quantized_modules(
             exclude_modules=exclude_modules,
-            supported_bits=supported_bits,
         )
 
-        APModel.tie_weights()
+        ap_model.tie_weights()
 
         # Look for the weights file and load it
         for file in os.listdir(quant_model_path):
@@ -127,25 +138,23 @@ class BaseAPForCausalLM(nn.Module, ABC):
         # loads the weights into modules and distributes
         # across available devices automatically
         load_checkpoint_and_dispatch(
-            APModel.model,
+            ap_model.model,
             checkpoint=quant_model_path,
             device_map=device_map,
-            no_split_module_classes=[APModel.layer_type],
+            no_split_module_classes=[ap_model.layer_type],
             offload_folder=offload_folder,
             dtype=torch_dtype,
         )
 
         # Dispath to devices
         if fuse_layers:
-            APModel.fuse_layers()
+            ap_model.fuse_layers()
 
-        APModel.refine_maxbits_linears()
+        ap_model.refine_maxbits_linears()
 
-        return APModel
+        return ap_model
 
-    def _load_quantized_modules(
-            self, exclude_modules=None, supported_bits=None
-    ):
+    def _load_quantized_modules(self, exclude_modules=None):
         # Get blocks of model
         layers = self.get_model_layers()
 
@@ -163,8 +172,9 @@ class BaseAPForCausalLM(nn.Module, ABC):
 
                 wqlinear = AnyPrecisionLinear(
                     module.in_features, module.out_features,
+                    self.model_supported_bits,
                     bias=module.bias is not None,
-                    supported_bits=supported_bits,
+                    supported_bits=self.supported_bits,
                     device=module.weight.device,
                     dtype=module.weight.dtype,
                 )
