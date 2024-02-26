@@ -20,6 +20,8 @@ class AutoAnalyzer(ModelAnalyzer):
 
     def get_layers_name(self):
         # Find attribute that ends with DecoderLayer
-        for name, module in self.get_layers():
-            if name.endswith("DecoderLayer"):
+        model = self.get_model()
+        # Find class that ends with DecoderLayer
+        for name, module in model.named_children():
+            if isinstance(module, torch.nn.ModuleList):
                 return name
