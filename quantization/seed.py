@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from tqdm import tqdm
 import utils
-import transformers
+from analyzer.auto import get_analyzer
 
 
 def _kmeans_fit(args_tuple):
@@ -50,7 +50,7 @@ def _kmeans_fit(args_tuple):
     return cluster_centers, labels
 
 
-def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_count=None):
+def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
@@ -66,10 +66,10 @@ def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_co
 
     model = utils.load_model(model)
 
-    if model_type is None:
-        model_type = utils.guess_model_type(model)
+    if analyzer is None:
+        analyzer = get_analyzer(model)
 
-    model_weights = utils.get_model_weights(model, model_type)
+    model_weights = analyzer.get_model_weights()
     del model
 
     if isinstance(gradients, str):
@@ -79,11 +79,11 @@ def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_co
 
     pool = Pool(cpu_count)
 
-    with tqdm(total=len(utils.get_sequential(model_type)) * len(model_weights), desc="Quantizing layers") as pbar:
+    with tqdm(total=len(analyzer.get_module_names()) * len(model_weights), desc="Quantizing layers") as pbar:
         for l in range(len(model_weights)):
             if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
                 logging.info(f"Skipping layer {l}, file already exists")
-                pbar.update(len(utils.get_sequential(model_type)))
+                pbar.update(len(analyzer.get_module_names()))
                 continue
 
             gradient_layer = gradients[l]
@@ -91,7 +91,7 @@ def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_co
 
             # generate kmeans tasks
             kmeans_jobs_by_module = []
-            for name in utils.get_sequential(model_type):
+            for name in analyzer.get_module_names():
                 g = gradient_layer[name].float().numpy()
 
                 module_weight = model_layer[name]
@@ -124,7 +124,7 @@ def get_seed(model, gradients, bit_width, output_folder, model_type=None, cpu_co
             lut_per_layer, weight_per_layer = {}, {}
 
             # postprocess kmeans results
-            for i, name in enumerate(utils.get_sequential(model_type)):
+            for i, name in enumerate(analyzer.get_module_names()):
                 lut_per_row, weight_per_row = [], []
                 module_weight = model_layer[name]
                 for j in range(module_weight.shape[0]):

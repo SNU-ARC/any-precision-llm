@@ -4,6 +4,7 @@ import os
 import torch
 import logging
 from multiprocessing import Pool
+from analyzer.auto import get_analyzer
 
 import utils
 
@@ -75,12 +76,11 @@ def _permute_bitmaps_int32(bitmaps):
 
 
 def _process_layer_data(args):
-    layer_idx, lut_path, model_type, layers_name, module_real_names, parent_precision, seed_precision = args
+    layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision = args
     layer_data = {}
 
     weightpath = os.path.join(lut_path, 'weights', f'l{layer_idx}.pt')
     layer_weights = torch.load(weightpath)
-    module_names = utils.get_sequential(model_type)
 
     for i, name in enumerate(module_names):
         N, group_count, group_size = layer_weights[name].shape
@@ -98,7 +98,7 @@ def _process_layer_data(args):
         weighttensor = _permute_bitmaps_int32(bitarray)  # Ensure this function is defined
         weighttensor = torch.from_numpy(weighttensor)
 
-        param_name = f'{layers_name}.{layer_idx}.{module_real_names[i]}'
+        param_name = f'{model_name}.{layers_name}.{layer_idx}.{name}'
         layer_data[param_name + '.qweight'] = weighttensor.numpy()
 
         for bit in range(seed_precision, parent_precision + 1):
@@ -120,7 +120,7 @@ def pack(model,
          output_model_path,
          seed_precision,
          parent_precision,
-         model_type=None,
+         analyzer=None,
          cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -128,16 +128,17 @@ def pack(model,
     model = utils.load_model(model)
     tokenizer = utils.load_tokenizer(tokenizer)
 
-    if model_type is None:
-        model_type = utils.guess_model_type(model)
+    if analyzer is None:
+        analyzer = get_analyzer(model)
     state_dict = model.state_dict()
-    model_weights = utils.get_model_weights(model, model_type)
+    model_weights = analyzer.get_model_weights()
 
     num_layers = len(model_weights)
-    layers_name = utils.get_layers_name(model_type)
-    module_real_names = utils.get_sequential(model_type)
+    model_name = analyzer.get_model_name()
+    layers_name = analyzer.get_layers_name()
+    module_names = analyzer.get_module_names()
 
-    args_list = [(layer_idx, lut_path, model_type, layers_name, module_real_names, parent_precision, seed_precision) for
+    args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision) for
                  layer_idx in range(num_layers)]
 
     with Pool(cpu_count) as pool:
@@ -153,7 +154,7 @@ def pack(model,
     # add new config parameters
     config.anyprec_seed_precision = seed_precision
     config.anyprec_parent_precision = parent_precision
-    config.anyprec_model_type = model_type
+    config.anyprec_model_type = analyzer.model_type
 
     os.makedirs(output_model_path, exist_ok=True)
     torch.save(state_dict, os.path.join(output_model_path, 'pytorch_model.bin'))

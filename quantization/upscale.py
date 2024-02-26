@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import numba
 import transformers
+from analyzer.auto import get_analyzer
 
 import utils
 
@@ -320,7 +321,7 @@ def _load_progress(ran, parent_parameters_path, seed_precision, parent_precision
     return todo_ran, processed_ran
 
 
-def upscale(model, seed_precision, parent_precision, model_type, seed_parameters_path,
+def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_path,
             parent_parameters_path, gradients, cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -340,7 +341,10 @@ def upscale(model, seed_precision, parent_precision, model_type, seed_parameters
     print("Loading original model weights...")
     model = utils.load_model(model)
 
-    model_weights = utils.get_model_weights(model, model_type)  # TODO: just use the model directly, to prevent loading the model twice
+    if analyzer is not None:
+        analyzer = get_analyzer(model)
+
+    model_weights = analyzer.get_model_weights()  # TODO: just use the model directly, to prevent loading the model twice
 
     ran = list(range(len(model_weights)))
 
@@ -351,7 +355,7 @@ def upscale(model, seed_precision, parent_precision, model_type, seed_parameters
     else:
         assert isinstance(gradients, list), "gradients should be a string or a list"
 
-    module_names = utils.get_sequential(model_type)
+    module_names = analyzer.get_module_names()
 
     # Format the weights and gradients
     # TODO: check that this doesn't use double the memory
@@ -422,6 +426,6 @@ def upscale(model, seed_precision, parent_precision, model_type, seed_parameters
 if __name__ == "__main__":
     # args = parser.parse_args()
     # upscale(args.orig_bit, args.bit, args.model_type, args.lut_src, args.lut_dest, args.gradient, args.model)
-    upscale(3, 8, 'opt', '../cache/seed/(opt-1.3b)-c4-w3',
+    upscale(3, 8, 'opt', None, '../cache/seed/(opt-1.3b)-c4-w3',
             '../cache/parent/(opt-1.3b)-c4-w8_orig3',
-            '../cache/gradients/(opt-1.3b)-c4.pt', 'facebook/opt-1.3b', os.cpu_count())
+            '../cache/gradients/(opt-1.3b)-c4.pt',  os.cpu_count())

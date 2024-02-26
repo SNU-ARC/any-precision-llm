@@ -6,6 +6,7 @@ import utils
 import argparse
 import logging
 from config import *
+from analyzer.auto import get_analyzer
 
 import datautils
 
@@ -15,7 +16,7 @@ def get_gradients(model,
                   dataset=DEFAULT_DATASET,
                   seq_len=DEFAULT_SEQ_LEN,
                   num_examples=DEFAULT_NUM_EXAMPLES,
-                  model_type=None,
+                  analyzer=None,
                   save_path=None):
     logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
                  f"{num_examples} examples...")
@@ -26,21 +27,21 @@ def get_gradients(model,
 
     input_tokens = datautils.get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
 
-    if model_type is None:
-        model_type = utils.guess_model_type(model)
+    if analyzer is None:
+        analyzer = get_analyzer(model)
 
     model = model.bfloat16()
     model.eval()
     model.cuda()
 
-    layers = utils.get_layers(model, model_type)
+    layers = analyzer.get_layers()
 
     # Register hook to store the square of the gradients
     def square_grad_hook(grad):
         return grad.pow(2)
 
     for layer in layers:
-        for module in utils.get_modules(layer, model_type=model_type):
+        for module in analyzer.get_modules(layer).values():
             module.weight.register_hook(square_grad_hook)
 
     # Calculate gradients through loss.backward()
@@ -55,8 +56,7 @@ def get_gradients(model,
     gradients = []
     for layer in layers:
         gradients_per_layer = {}
-        for module, module_name in zip(utils.get_modules(layer, model_type=model_type),
-                                       utils.get_sequential(model_type=model_type)):
+        for module_name, module in analyzer.get_modules(layer).items():
             gradients_per_layer[module_name] = module.weight.grad.cpu()
         gradients.append(gradients_per_layer)
 

@@ -13,6 +13,8 @@ import logging
 from config import *
 import utils
 
+from analyzer.auto import OPTAnalyzer
+
 import gradients
 import upscale
 import pack
@@ -63,6 +65,8 @@ def quantize_any_precision(model,
 
     model_type = model_type if model_type is not None else utils.guess_model_type(model)
 
+    analyzer = OPTAnalyzer(model)
+
     # ------------------- Gradients -------------------
 
     logging.info("------------------- Gradients -------------------")
@@ -82,7 +86,7 @@ def quantize_any_precision(model,
             dataset=dataset,
             seq_len=seq_len,
             num_examples=num_examples,
-            model_type=model_type,
+            analyzer=analyzer,
             save_path=gradients_cache_path,
         )
         logging.info("Gradient calculation complete.")
@@ -111,7 +115,7 @@ def quantize_any_precision(model,
         gradients=model_gradients,
         bit_width=seed_precision,
         output_folder=seed_cache_path,
-        model_type=model_type,
+        analyzer=analyzer,
         cpu_count=cpu_count,
     )
     logging.info("Seed calculation complete.")
@@ -130,7 +134,7 @@ def quantize_any_precision(model,
         model=model,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
-        model_type=model_type,
+        analyzer=analyzer,
         seed_parameters_path=seed_cache_path,
         parent_parameters_path=parent_cache_path,
         gradients=model_gradients,
@@ -157,7 +161,7 @@ def quantize_any_precision(model,
         output_model_path=model_output_path,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
-        model_type=model_type,
+        analyzer=analyzer,
         cpu_count=cpu_count,
     )
 
