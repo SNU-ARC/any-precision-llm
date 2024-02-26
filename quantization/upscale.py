@@ -341,7 +341,7 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
     print("Loading original model weights...")
     model = utils.load_model(model)
 
-    if analyzer is not None:
+    if analyzer is None:
         analyzer = get_analyzer(model)
 
     model_weights = analyzer.get_model_weights()  # TODO: just use the model directly, to prevent loading the model twice
