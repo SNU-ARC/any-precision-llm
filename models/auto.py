@@ -1,34 +1,6 @@
 import torch
-import tqdm
 import logging
 from .base import BaseAPForCausalLM
-from transformers import AutoConfig
-from .llama import LlamaAPForCausalLM
-from .opt import OPTAPForCausalLM
-
-
-class AutoAPLoader:
-    @staticmethod
-    def from_quantized(
-            quant_model_path,
-            *args,
-            **kwargs
-    ):
-        config = AutoConfig.from_pretrained(quant_model_path)
-        if config.anyprec_model_type == "llama":
-            ap_class = LlamaAPForCausalLM
-        elif config.anyprec_model_type == "opt":
-            ap_class = OPTAPForCausalLM
-        else:
-            if '_name_or_path' in config.__dict__:
-                name = config._name_or_path
-            else:
-                name = "UNKNOWN"
-
-            logging.warning("Unknown quantized model {}, will try use AutoAPForCausalLM".format(name))
-            ap_class = AutoAPForCausalLM
-
-        return ap_class.from_quantized(quant_model_path, *args, **kwargs)
 
 
 class AutoAPForCausalLM(BaseAPForCausalLM):

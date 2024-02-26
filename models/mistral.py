@@ -1,17 +1,18 @@
 from .base import BaseAPForCausalLM
 
 
-class LlamaAPForCausalLM(BaseAPForCausalLM):
+
+class MistralAPForCausalLM(BaseAPForCausalLM):
     @property
     def layer_type(self):
-        return "LlamaDecoderLayer"
+        return "MistralDecoderLayer"
 
     @property
     def max_new_tokens_key(self):
         return "max_position_embeddings"
 
     def fuse_layers(self):
-        raise NotImplementedError("Llama does not support layer fusion")
+        raise NotImplementedError("Mistral does not support layer fusion")
 
     def get_model_layers(self):
         return self.model.model.layers

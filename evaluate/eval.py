@@ -4,7 +4,7 @@ import torch
 from helpers.utils import vprint, logprint, model_name_parser, base_model_name_to_hf_repo_name, get_tokenizer_type
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import os
-from models.opt import OPTAPForCausalLM
+from models import AutoAPLoader
 
 
 # from algorithms.SqueezeLLM.llama import load_quant as sqllm_load_quant
@@ -26,7 +26,7 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
 
     if 'anyprec-' in model_path:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = OPTAPForCausalLM.from_quantized(model_path, supported_bits=[3, 4, 5, 6, 7, 8]).cuda()
+        model = AutoAPLoader.from_quantized(model_path).cuda()
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,
@@ -69,7 +69,9 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
     results = {}
 
-    for bit in range(3, 9):
+    supported_bits = model.supported_bits if is_anyprec else [None]
+
+    for bit in supported_bits:
         if is_anyprec:
             logprint(verbose, f"Setting model precision to {bit}-bit...")
             model.change_bits(bit)
