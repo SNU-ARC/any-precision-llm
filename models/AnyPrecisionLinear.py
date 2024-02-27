@@ -8,34 +8,34 @@ except:
 
 
 class AnyPrecisionLinear(nn.Module):
-    def __init__(self, in_features, out_features, model_supported_bits, bias=True, supported_bits=None, device=None,
+    def __init__(self, in_features, out_features, supported_bits, bias=True, precisions=None, device=None,
                  dtype=None):
         super().__init__()
-        if supported_bits is None:
-            supported_bits = model_supported_bits
-        if not isinstance(supported_bits, list):
+        if precisions is None:
+            precisions = supported_bits
+        if not isinstance(precisions, list):
             raise RuntimeError('supported_bits must be a list of integers.')
         if dtype is not None and dtype != torch.float16:
             raise RuntimeError('Only float16 is supported for now.')
 
         self.in_features = in_features
         self.out_features = out_features
+        self.precisions = precisions
+        self.selected_precision = max(self.precisions)
         self.supported_bits = supported_bits
-        self.selected_bit = max(supported_bits)
-        self.model_supported_bits = model_supported_bits
 
         # size of buffer refined later
         self.register_buffer(
             'qweight',
             torch.empty(
-                (max(model_supported_bits), out_features, in_features // 32),
+                (max(supported_bits), out_features, in_features // 32),
                 dtype=torch.int32,
                 device=device
             )
         )
 
         # unsupported lut table will removed later
-        for bit in model_supported_bits:
+        for bit in supported_bits:
             self.register_buffer(
                 f'lut{bit}',
                 torch.empty(
@@ -58,19 +58,16 @@ class AnyPrecisionLinear(nn.Module):
             self.bias = None
 
     def refine_bits(self):
-        self.qweight = self.qweight[:max(self.supported_bits)]
-        for bit in self.model_supported_bits:
-            if bit not in self.supported_bits:
+        self.qweight = self.qweight[:max(self.precisions)]
+        for bit in self.supported_bits:
+            if bit not in self.precisions:
                 delattr(self, f'lut{bit}')
 
     def forward(self, x, **kwargs):
-        # if w_bits is None:
-        #     w_bits = self.selected_bit
-
-        # if w_bits not in self.supported_bits:
-        #     raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
-
-        w_bits = self.selected_bit
+        if 'precision' in kwargs:
+            w_bits = kwargs['precision']
+        else:
+            w_bits = self.selected_precision
 
         if x.numel() // x.shape[-1] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
@@ -83,11 +80,11 @@ class AnyPrecisionLinear(nn.Module):
 
         return x
 
-    def change_bits(self, w_bits):
-        if w_bits not in self.supported_bits:
+    def set_precision(self, precision):
+        if precision not in self.precisions:
             raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
 
-        self.selected_bit = w_bits
+        self.selected_precision = precision
 
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}'

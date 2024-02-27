@@ -41,7 +41,7 @@ def set_op_by_name(layer, name, new_module):
 
 class BaseAPForCausalLM(nn.Module, ABC):
     def __init__(
-            self, model, model_type, is_quantized, config, supported_bits, model_supported_bits
+            self, model, model_type, is_quantized, config, precisions, supported_bits
     ):
         super().__init__()
         self.model: PreTrainedModel = model
@@ -49,18 +49,40 @@ class BaseAPForCausalLM(nn.Module, ABC):
         self.is_quantized: bool = is_quantized
         self.search_result = None
         self.config: PretrainedConfig = config
+        self.precisions = precisions
         self.supported_bits = supported_bits
-        self.model_supported_bits = model_supported_bits
+        self.precision = max(self.precisions)
 
     def to(self, device: str):
         return self.model.to(device)
 
     def forward(self, *args, **kwargs):
-        return self.model(*args, **kwargs)
+        if 'precision' in kwargs:
+            prev_precision = self.precision
+            precision = kwargs.pop('precision')
+            self.set_precision(precision)
+        else:
+            prev_precision = self.precision
+
+        results = self.model.forward(*args, **kwargs)
+
+        self.set_precision(prev_precision)
+        return results
 
     def generate(self, *args, **kwargs):
+        if 'precision' in kwargs:
+            prev_precision = self.precision
+            precision = kwargs.pop('precision')
+            self.set_precision(precision)
+        else:
+            prev_precision = self.precision
+
         with torch.inference_mode():
-            return self.model.generate(*args, **kwargs)
+            results = self.model.generate(*args, **kwargs)
+
+        self.set_precision(prev_precision)
+        return results
+
 
     @staticmethod
     def _load_config(
@@ -83,7 +105,7 @@ class BaseAPForCausalLM(nn.Module, ABC):
             device_map="balanced",
             offload_folder=None,
             exclude_modules=None,
-            supported_bits=None
+            precisions=None
     ):
         # [STEP 1-2] Load weights path and configs
         config = cls._load_config(
@@ -100,21 +122,21 @@ class BaseAPForCausalLM(nn.Module, ABC):
                 # attn_implementation="flash_attention_2",
             )
 
-        model_supported_bits = list(range(config.anyprec_seed_precision,
-                                          config.anyprec_parent_precision + 1))
-        if supported_bits is None:
-            supported_bits = model_supported_bits
+        supported_bits = list(range(config.anyprec_seed_precision,
+                                    config.anyprec_parent_precision + 1))
+        if precisions is None:
+            precisions = supported_bits
         else:
-            assert all(bit in model_supported_bits for bit in supported_bits), \
-                f"Supported bits {supported_bits} must be a subset of model supported bits {model_supported_bits}"
+            assert all(bit in supported_bits for bit in precisions), \
+                f"Supported bits {precisions} must be a subset of model supported bits {supported_bits}"
 
         ap_model = cls(
             model,
             config.model_type,
             is_quantized=is_quantized,
             config=config,
-            supported_bits=supported_bits,
-            model_supported_bits=model_supported_bits
+            precisions=precisions,
+            supported_bits=supported_bits
         )
 
         # Prepare AnyPrecisionLinear layers, replace nn.Linear
@@ -172,9 +194,9 @@ class BaseAPForCausalLM(nn.Module, ABC):
 
                 wqlinear = AnyPrecisionLinear(
                     module.in_features, module.out_features,
-                    self.model_supported_bits,
+                    self.supported_bits,
                     bias=module.bias is not None,
-                    supported_bits=self.supported_bits,
+                    precisions=self.precisions,
                     device=module.weight.device,
                     dtype=module.weight.dtype,
                 )
@@ -195,13 +217,14 @@ class BaseAPForCausalLM(nn.Module, ABC):
         torch.cuda.empty_cache()
         gc.collect()
 
-    def change_bits(self, changed_bits):
+    def set_precision(self, precision):
         layers = self.get_model_layers()
         for layer in layers:
             # Get every linear layer in a block and refine bits
             named_linears = get_AP_linears(layer)
             for _, module in named_linears.items():
-                module.change_bits(changed_bits)
+                module.set_precision(precision)
+        self.precision = precision
 
     def tie_weights(self):
         if hasattr(self.model, "tie_weights"):

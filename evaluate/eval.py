@@ -69,12 +69,12 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
     results = {}
 
-    supported_bits = model.supported_bits if is_anyprec else [None]
+    supported_bits = model.precisions if is_anyprec else [None]
 
     for bit in supported_bits:
         if is_anyprec:
             logprint(verbose, f"Setting model precision to {bit}-bit...")
-            model.change_bits(bit)
+            model.set_precision(bit)
 
         for testcase_name in testcases:
             vprint(verbose, f"---------------------- {testcase_name} ----------------------")
