@@ -87,7 +87,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
             logprint(verbose, "Calculating perplexity...")
 
             seq_len = input_tokens.input_ids.size(1)
-            nsamples = (seq_len + chunk_size - 1) // chunk_size  # ceil(seq_len / chunk_size)
+            nsamples = seq_len // chunk_size  # floor(seq_len / chunk_size)
 
             neg_log_likelihoods = []
             for i in tqdm(range(nsamples), disable=not verbose):
@@ -98,12 +98,16 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
                 with torch.no_grad():
                     outputs = model(input_ids, labels=input_ids)
 
-                    # loss is calculated using CrossEntropyLoss which averages over valid labels
-                    # N.B. the model only calculates loss over trg_len - 1 labels,
-                    # because it internally shifts the labels to the left by 1.
+                    '''
+                    logits = outputs.logits
+                    shift_logits = logits[..., :-1, :].contiguous().float()
+                    shift_labels = input_ids[..., 1:].contiguous()
+                    loss = torch.nn.functional.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)),
+                                                             shift_labels.view(-1), reduction='none')
+                    neg_log_likelihood = loss.float()
+                    '''
                     neg_log_likelihood = outputs.loss
                     neg_log_likelihoods.append(neg_log_likelihood)
-
             ppl = torch.exp(torch.stack(neg_log_likelihoods).mean())
             logprint(verbose, f"Perplexity: {ppl.item()}")
 

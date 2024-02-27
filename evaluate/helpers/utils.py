@@ -382,6 +382,8 @@ def get_tokenizer_type(model_path):
         tokenizer_type = 'mistral'
     elif 'phi-2' in model_path.lower():
         tokenizer_type = 'phi-2'
+    elif 'gemma' in model_path.lower():
+        tokenizer_type = 'gemma'
     else:
         tokenizer_type = None
 
