@@ -95,19 +95,19 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
                 input_ids = input_tokens.input_ids[:, begin_loc:begin_loc + chunk_size]
 
+                # add BOS token, necessary for Gemma-7B, harmless for other models
+                # https://github.com/huggingface/transformers/issues/29250
+                assert input_ids.size(0) == 1
+                if input_ids[0][0] != tokenizer.bos_token_id:
+                    input_ids = torch.cat(
+                        [torch.tensor([tokenizer.bos_token_id], dtype=input_ids.dtype, device=input_ids.device),
+                         input_ids[0]]).unsqueeze(0)
+
                 with torch.no_grad():
                     outputs = model(input_ids, labels=input_ids)
-
-                    '''
-                    logits = outputs.logits
-                    shift_logits = logits[..., :-1, :].contiguous().float()
-                    shift_labels = input_ids[..., 1:].contiguous()
-                    loss = torch.nn.functional.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)),
-                                                             shift_labels.view(-1), reduction='none')
-                    neg_log_likelihood = loss.float()
-                    '''
                     neg_log_likelihood = outputs.loss
                     neg_log_likelihoods.append(neg_log_likelihood)
+
             ppl = torch.exp(torch.stack(neg_log_likelihoods).mean())
             logprint(verbose, f"Perplexity: {ppl.item()}")
 
