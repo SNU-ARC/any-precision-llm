@@ -13,11 +13,11 @@ if __name__ == '__main__':
     model = AutoAPLoader.from_quantized(model_path, precisions=[3, 4, 5, 6])
     model = model.eval().cuda()
 
-    input_context = "Explain what Large Language Models are and how they work."
+    input_context = "Large Language Models are"
     input_ids = tokenizer.encode(input_context, return_tensors="pt").cuda()
 
     for precision in model.precisions:
         print(f"=============== generation with {precision}-bit precision ===============")
         output = model.generate(input_ids, precision=precision, max_length=64, pad_token_id=tokenizer.eos_token_id)
         output_text = tokenizer.decode(output[0], skip_special_tokens=True)
-        print(output_text)
+        print(output_text + '\n')
