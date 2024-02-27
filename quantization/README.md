@@ -51,6 +51,8 @@ python main.py <model> [options]
 - `--recalculate_gradients`: Flag to recalculate the gradients.
 - `--recalculate_seed`: Flag to recalculate the seed.
 
+The default argument for some of the optional arguments are set in `config.py`.
+
 ### Example Command
 
 ```bash
