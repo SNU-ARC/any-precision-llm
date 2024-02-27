@@ -60,7 +60,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
     Note that the perplexity scores are calculated over non-overlapping chunks of the test set.
     """
 
-    if hasattr(model, 'change_bits'):
+    if hasattr(model, 'set_precision'):
         is_anyprec = True
     else:
         is_anyprec = False

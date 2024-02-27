@@ -21,7 +21,7 @@ class AnyPrecisionLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.precisions = precisions
-        self.selected_precision = max(self.precisions)
+        self.precision = max(self.precisions)
         self.supported_bits = supported_bits
 
         # size of buffer refined later
@@ -67,7 +67,7 @@ class AnyPrecisionLinear(nn.Module):
         if 'precision' in kwargs:
             w_bits = kwargs['precision']
         else:
-            w_bits = self.selected_precision
+            w_bits = self.precision
 
         if x.numel() // x.shape[-1] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
@@ -84,7 +84,7 @@ class AnyPrecisionLinear(nn.Module):
         if precision not in self.precisions:
             raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
 
-        self.selected_precision = precision
+        self.precision = precision
 
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}'
