@@ -99,11 +99,6 @@ class AutoAPForCausalLM(BaseAPForCausalLM):
             raise ValueError("Model layers not set")
         return self._model_layers
 
-    def get_act_for_scaling(self):
-        return dict(
-            is_scalable=False
-        )
-
     def move_embed(self, device: str):
         if self._embed_tokens is None:
             raise ValueError(f"Embed tokens not set")

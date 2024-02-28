@@ -14,7 +14,7 @@ from accelerate.big_modeling import (
 )
 import os
 from abc import ABC, abstractmethod
-from .AnyPrecisionLinear import AnyPrecisionLinear
+from ..modules.AnyPrecisionLinear import AnyPrecisionLinear
 
 
 def get_named_linears(module):
@@ -82,7 +82,6 @@ class BaseAPForCausalLM(nn.Module, ABC):
 
         self.set_precision(prev_precision)
         return results
-
 
     @staticmethod
     def _load_config(
@@ -236,10 +235,6 @@ class BaseAPForCausalLM(nn.Module, ABC):
 
     @abstractmethod
     def fuse_layers(self):
-        pass
-
-    @abstractmethod
-    def get_act_for_scaling(self):
         pass
 
     @abstractmethod

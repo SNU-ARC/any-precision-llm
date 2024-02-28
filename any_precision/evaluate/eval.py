@@ -1,10 +1,10 @@
-from helpers import dataloader
+from .helpers import dataloader
 from tqdm import tqdm
 import torch
-from helpers.utils import vprint, logprint, model_name_parser, base_model_name_to_hf_repo_name, get_tokenizer_type
+from .helpers.utils import vprint, logprint, model_name_parser, base_model_name_to_hf_repo_name, get_tokenizer_type
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import os
-from models import AutoAPLoader
+from ..models import AutoAPLoader
 
 
 # from algorithms.SqueezeLLM.llama import load_quant as sqllm_load_quant

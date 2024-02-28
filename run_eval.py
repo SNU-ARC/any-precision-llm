@@ -2,8 +2,8 @@ import os
 import json
 import argparse
 
-from helpers import utils
-import eval
+from any_precision.evaluate.helpers import utils
+from any_precision.evaluate import eval
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output_file', type=str, default='results.json')
@@ -15,7 +15,7 @@ model_paths = []
 
 # Uncomment the line below to run baseline models
 # model_paths += utils.get_base_models(include_prequant=False, relevant_models_only=True)
-model_paths += utils.get_subdirs('../cache/packed')
+model_paths += utils.get_subdirs('./cache/packed')
 
 # testcases for perplexity calculation
 datasets = ['wikitext2', 'c4_new', 'ptb_new_sliced']

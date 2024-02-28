@@ -16,11 +16,6 @@ class OPTAPForCausalLM(BaseAPForCausalLM):
     def get_model_layers(self):
         return self.model.model.decoder.layers
 
-    def get_act_for_scaling(self):
-        return dict(
-            is_scalable=False
-        )
-
     def move_embed(self, device: str):
         self.model.model.decoder.embed_tokens = self.model.model.decoder.embed_tokens.to(device)
         self.model.model.decoder.embed_positions = self.model.model.decoder.embed_positions.to(device)
