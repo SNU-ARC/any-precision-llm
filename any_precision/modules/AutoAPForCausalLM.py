@@ -1,6 +1,6 @@
 import torch
 import logging
-from .base import BaseAPForCausalLM
+from .BaseAPForCausalLM import BaseAPForCausalLM
 
 
 class AutoAPForCausalLM(BaseAPForCausalLM):

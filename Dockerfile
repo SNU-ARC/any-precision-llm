@@ -20,7 +20,7 @@ RUN pip install dist/any_precision_llm-0.0.0-py3-none-any.whl
 # RUN mv any_precision/cache/packed ../cache
 # RUN mv demo.py ../demo.py
 
-WORKDIR ..
+# WORKDIR ..
 # RUN rm -rf any-precision-llm
 
 CMD /bin/bash

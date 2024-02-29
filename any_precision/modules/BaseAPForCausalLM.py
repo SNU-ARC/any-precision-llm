@@ -13,7 +13,7 @@ from accelerate.big_modeling import (
     load_checkpoint_and_dispatch,
 )
 import os
-from ..modules.AnyPrecisionLinear import AnyPrecisionLinear
+from .AnyPrecisionLinear import AnyPrecisionLinear
 
 
 def get_named_linears(module):

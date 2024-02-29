@@ -23,7 +23,7 @@ def get_analyzer(model, model_type=None):
 
     try:
         dirpath = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(dirpath, f'../../configs/{model_type}.yaml')) as f:
+        with open(os.path.join(dirpath, f'../../models/{model_type}.yaml')) as f:
             model_config = yaml.safe_load(f)
     except FileNotFoundError:
         raise ValueError(f"Unknown model type: {model_type}. Leave model_type as None to use AutoAnalyzer.")
