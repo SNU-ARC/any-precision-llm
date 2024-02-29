@@ -1,9 +1,9 @@
 # Any-Precision Model Quantization
 
-This folder provides the pipeline for quantizing LLMs to Any-Precision.
+The folder `quantization` provides the pipeline for quantizing LLMs to Any-Precision.
 
 ## Overview
-The main script `main.py` provides the pipeline for quantizing LLMs to Any-Precision. The pipeline includes the following steps:
+The main script `quantization/main.py` provides the pipeline for quantizing LLMs to Any-Precision. The pipeline includes the following steps:
 
 - Gradient calculation for model analysis.
 - Generation of a seed model at a specified precision.
@@ -31,7 +31,7 @@ pip install -r requirements.txt
 To use this tool, run the main script with the required arguments:
 
 ```bash
-python main.py <model> [options]
+python -m quantization.main <model> [options]
 ```
 
 ### Required Argument
@@ -56,13 +56,13 @@ The default argument for some of the optional arguments are set in `config.py`.
 ### Example Command
 
 ```bash
-python main.py mistralai/Mistral-7B-v0.1 --seed_precision 3 --parent_precision 8
+python -m quantization.main mistralai/Mistral-7B-v0.1 --seed_precision 3 --parent_precision 8
 ```
 
 Or using the default values:
 
 ```bash
-python main.py mistralai/Mistral-7B-v0.1
+python -m quantization.main mistralai/Mistral-7B-v0.1
 ```
 
 The final packed models will be under `cache/packed` in the project directory.
