@@ -160,14 +160,10 @@ cython_debug/
 .idea/
 
 # Cache folder
-./any_precision/cache/
-
-# Plugin build directories
-./any_precision/modules/kernels/build/*
-./any_precision/modules/kernels/any_precision_ext.egg-info/*
+any_precision/cache/
 
 # JSON files
 *.json
 
 # Evaluate directories
-./any_precision/evaluate/input_tokens_cache/
+any_precision/evaluate/input_tokens_cache/
