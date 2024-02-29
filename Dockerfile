@@ -17,10 +17,9 @@ WORKDIR ../../..
 COPY . .
 RUN python3 setup.py sdist bdist_wheel
 RUN pip install dist/any_precision_llm-0.0.0-py3-none-any.whl
-# RUN mv any_precision/cache/packed ../cache
-# RUN mv demo.py ../demo.py
+RUN mv demo.py quantize.py ..
 
-# WORKDIR ..
-# RUN rm -rf any-precision-llm
+WORKDIR ..
+RUN rm -rf any-precision-llm
 
 CMD /bin/bash
