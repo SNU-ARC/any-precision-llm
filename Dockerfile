@@ -1,7 +1,7 @@
 FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 MAINTAINER SangLyul Cho <chosanglyul@gmail.com>
 
-RUN apt update && apt upgrade -y && apt install -y pip ninja-build
+RUN apt update && apt upgrade -y && apt install -y pip ninja-build vim
 
 WORKDIR /home/any-precision-llm
 COPY ./requirements.txt ./requirements.txt
