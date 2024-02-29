@@ -7,8 +7,8 @@ import argparse
 import numpy as np
 from sklearn.cluster import KMeans
 from tqdm import tqdm
-import utils
-from analyzer import get_analyzer
+from .utils import load_model
+from .analyzer import get_analyzer
 
 
 def _kmeans_fit(args_tuple):
@@ -64,7 +64,7 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
     if not os.path.exists(weight_folder):
         os.makedirs(weight_folder)
 
-    model = utils.load_model(model)
+    model = load_model(model)
 
     if analyzer is None:
         analyzer = get_analyzer(model)

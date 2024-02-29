@@ -4,15 +4,14 @@ import os
 import torch
 import logging
 from multiprocessing import Pool
-from analyzer import get_analyzer
-
-import utils
+from .analyzer import get_analyzer
+from .utils import load_model, load_tokenizer
 
 _bytes_per_thread = 4
 
 
 def _permute_bitmaps(bitmaps):
-    w_bits, N, total_bytes = bitmaps.shape
+    _, _, total_bytes = bitmaps.shape
     assert total_bytes % 4 == 0, "Number of bytes must be a multiple of 4"
 
     threads_per_warp = 32
@@ -125,8 +124,8 @@ def pack(model,
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
-    model = utils.load_model(model)
-    tokenizer = utils.load_tokenizer(tokenizer)
+    model = load_model(model)
+    tokenizer = load_tokenizer(tokenizer)
 
     if analyzer is None:
         analyzer = get_analyzer(model)

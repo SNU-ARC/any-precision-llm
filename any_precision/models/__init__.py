@@ -1,9 +1,9 @@
 from transformers import AutoConfig
-from .llama import LlamaAPForCausalLM
-from .mistral import MistralAPForCausalLM
-from .opt import OPTAPForCausalLM
+from .base import BaseAPForCausalLM
 from .auto import AutoAPForCausalLM
 import logging
+import yaml
+import os
 
 
 class AutoAPLoader:
@@ -14,16 +14,16 @@ class AutoAPLoader:
             **kwargs
     ):
         config = AutoConfig.from_pretrained(quant_model_path)
-        if config.anyprec_model_type == "llama":
-            ap_class = LlamaAPForCausalLM
-        elif config.anyprec_model_type == "mistral":
-            ap_class = MistralAPForCausalLM
-        elif config.anyprec_model_type == "opt":
-            ap_class = OPTAPForCausalLM
-        elif config.anyprec_model_type == "auto":
+        if config.anyprec_model_type == "auto":
             logging.warning("Loading auto-quantized model, will try use AutoAPForCausalLM")
-            ap_class = AutoAPForCausalLM
+            return AutoAPForCausalLM.from_quantized(quant_model_path, *args, **kwargs)
         else:
-            raise ValueError(f"Unsupported model type: {config.anyprec_model_type}")
-
-        return ap_class.from_quantized(quant_model_path, *args, **kwargs)
+            try:
+                dirpath = os.path.dirname(os.path.realpath(__file__))
+                with open(os.path.join(dirpath, f'../configs/{config.anyprec_model_type}.yaml')) as f:
+                    model_config = yaml.safe_load(f)
+            except FileNotFoundError:
+                raise ValueError(f"Unsupported model type: {config.anyprec_model_type}")
+            except:
+                raise ValueError(f"Failed to load model config: {config.anyprec_model_type}")
+            return BaseAPForCausalLM.from_quantized(quant_model_path, model_config, *args, **kwargs)

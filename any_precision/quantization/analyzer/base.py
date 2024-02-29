@@ -1,11 +1,10 @@
-from abc import ABC, abstractmethod
 from transformers import AutoModelForCausalLM
-import torch
 
 
-class ModelAnalyzer(ABC):
-    def __init__(self, model: AutoModelForCausalLM):
+class ModelAnalyzer():
+    def __init__(self, model: AutoModelForCausalLM, model_config=None):
         self.model = model
+        self.model_config = model_config if model_config is not None else dict()
 
     def get_layers(self):
         layers_name = self.get_layers_name()
@@ -43,19 +42,14 @@ class ModelAnalyzer(ABC):
         return module
 
     @property
-    @abstractmethod
     def model_type(self):
-        pass
+        return self.model_config['model_type']
 
-    @abstractmethod
     def get_module_names(self):
-        pass
+        return self.model_config['module_names']
 
-    @abstractmethod
     def get_model_name(self):
-        pass
+        return self.model_config['model_name']
 
-    @abstractmethod
     def get_layers_name(self):
-        pass
-
+        return self.model_config['layers_name']

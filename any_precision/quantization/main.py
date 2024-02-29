@@ -1,6 +1,6 @@
 # It is CRITICAL that the seed module is imported before any other module that uses numpy or torch
 # as other imports may cause issues with threadpoolctl on certain machines, leading to performance drops.
-import seed
+from .seed import get_seed
 
 import os
 import os.path
@@ -9,14 +9,12 @@ import torch
 import argparse
 import logging
 
-from config import *
-import utils
-
-from analyzer import get_analyzer
-
-import gradients
-import upscale
-import pack
+from .config import *
+from .utils import load_model, load_tokenizer
+from .analyzer import get_analyzer
+from .gradients import get_gradients
+from .upscale import upscale
+from .pack import pack
 
 # Disable parallelism in tokenizers to prevent warnings when forking in the seed generation step
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -59,8 +57,8 @@ def quantize_any_precision(model,
 
     # ------------------- Load model -------------------
 
-    model = utils.load_model(model)
-    tokenizer = utils.load_tokenizer(model_string)
+    model = load_model(model)
+    tokenizer = load_tokenizer(model_string)
 
     analyzer = get_analyzer(model, model_type=model_type)
 
@@ -77,7 +75,7 @@ def quantize_any_precision(model,
     else:
         logging.info("Beginning gradient calculation...")
         # this will overwrite the gradients cache if it already exists
-        model_gradients = gradients.get_gradients(
+        model_gradients = get_gradients(
             model=model,
             tokenizer=tokenizer,
             dataset=dataset,
@@ -107,7 +105,7 @@ def quantize_any_precision(model,
         shutil.rmtree(seed_cache_path)
 
     # this skips over existing layers in the cache, and doesn't overwrite them
-    seed.get_seed(
+    get_seed(
         model=model,
         gradients=model_gradients,
         bit_width=seed_precision,
@@ -127,7 +125,7 @@ def quantize_any_precision(model,
     parent_cache_path = (f"{cache_dir}/parent/({model_name})-w{parent_precision}_orig{seed_precision}"
                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
-    upscale.upscale(
+    upscale(
         model=model,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
@@ -151,7 +149,7 @@ def quantize_any_precision(model,
         logging.info(f"Model output path {model_output_path} already exists and is not empty.")
         input(f"To proceed and overwrite {model_output_path}, press Enter. Else, press Ctrl+C to abort.")
 
-    pack.pack(
+    pack(
         model=model,
         tokenizer=tokenizer,
         lut_path=parent_cache_path,

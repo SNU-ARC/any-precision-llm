@@ -13,7 +13,6 @@ from accelerate.big_modeling import (
     load_checkpoint_and_dispatch,
 )
 import os
-from abc import ABC, abstractmethod
 from ..modules.AnyPrecisionLinear import AnyPrecisionLinear
 
 
@@ -39,9 +38,9 @@ def set_op_by_name(layer, name, new_module):
         setattr(layer, name, new_module)
 
 
-class BaseAPForCausalLM(nn.Module, ABC):
+class BaseAPForCausalLM(nn.Module):
     def __init__(
-            self, model, model_type, is_quantized, config, precisions, supported_bits
+            self, model, model_type, is_quantized, config, precisions, supported_bits, model_config=None
     ):
         super().__init__()
         self.model: PreTrainedModel = model
@@ -52,6 +51,7 @@ class BaseAPForCausalLM(nn.Module, ABC):
         self.precisions = precisions
         self.supported_bits = supported_bits
         self.precision = max(self.precisions)
+        self.model_config = model_config if model_config is not None else dict()
 
     def to(self, device: str):
         return self.model.to(device)
@@ -95,6 +95,7 @@ class BaseAPForCausalLM(nn.Module, ABC):
     def from_quantized(
             cls,
             quant_model_path,
+            model_config,
             max_new_tokens=None,
             torch_dtype=torch.float16,
             trust_remote_code=True,
@@ -135,7 +136,8 @@ class BaseAPForCausalLM(nn.Module, ABC):
             is_quantized=is_quantized,
             config=config,
             precisions=precisions,
-            supported_bits=supported_bits
+            supported_bits=supported_bits,
+            model_config = model_config,
         )
 
         # Prepare AnyPrecisionLinear layers, replace nn.Linear
@@ -229,24 +231,22 @@ class BaseAPForCausalLM(nn.Module, ABC):
         if hasattr(self.model, "tie_weights"):
             self.model.tie_weights()
 
-    @abstractmethod
     def get_model_layers(self):
-        pass
+        module = self.model
+        for attrib_name in self.model_config['model_name'].split('.'):
+            module = getattr(module, attrib_name)
+        return getattr(module, self.model_config['layers_name'])
 
-    @abstractmethod
     def fuse_layers(self):
-        pass
-
-    @abstractmethod
-    def move_embed(self, device: str):
+        if 'fuse_target_layers' not in self.model_config:
+            raise NotImplementedError("This model does not support layer fusion")
+        # TODO implement layer fusion
         pass
 
     @property
-    @abstractmethod
     def layer_type(self):
-        pass
+        return self.model_config['layer_type']
 
     @property
-    @abstractmethod
     def max_new_tokens_key(self):
-        pass
+        return self.model_config['max_new_tokens_key']

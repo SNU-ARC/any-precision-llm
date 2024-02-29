@@ -98,9 +98,3 @@ class AutoAPForCausalLM(BaseAPForCausalLM):
         if self._model_layers is None:
             raise ValueError("Model layers not set")
         return self._model_layers
-
-    def move_embed(self, device: str):
-        if self._embed_tokens is None:
-            raise ValueError(f"Embed tokens not set")
-        for attribute in self._embed_tokens:
-            setattr(self.model.model, attribute, getattr(self.model.model, attribute).to(device))

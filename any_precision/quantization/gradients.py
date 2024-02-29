@@ -1,14 +1,12 @@
-import transformers
 import torch
 from tqdm import tqdm
 import os
-import utils
+from .utils import load_model, load_tokenizer
 import argparse
 import logging
-from config import *
-from analyzer import get_analyzer
-
-import datautils
+from .config import *
+from .analyzer import get_analyzer
+from .datautils import get_tokens
 
 
 def get_gradients(model,
@@ -22,10 +20,10 @@ def get_gradients(model,
                  f"{num_examples} examples...")
     logging.info(f"Fetching {dataset} dataset...")
 
-    model = utils.load_model(model)
-    tokenizer = utils.load_tokenizer(tokenizer)
+    model = load_model(model)
+    tokenizer = load_tokenizer(tokenizer)
 
-    input_tokens = datautils.get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
+    input_tokens = get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
 
     if analyzer is None:
         analyzer = get_analyzer(model)

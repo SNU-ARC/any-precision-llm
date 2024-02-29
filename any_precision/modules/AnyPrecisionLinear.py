@@ -4,13 +4,15 @@ import torch.nn as nn
 try:
     from any_precision_ext import matmul_kbit, dequant_kbit
 except:
-    exit('Please install any precision CUDA kernel extension from modules/kernels.')
+    matmul_kbit, dequant_kbit = None, None
 
 
 class AnyPrecisionLinear(nn.Module):
     def __init__(self, in_features, out_features, supported_bits, bias=True, precisions=None, device=None,
                  dtype=None):
         super().__init__()
+        if dequant_kbit is None or matmul_kbit is None:
+            raise ModuleNotFoundError('Please install any precision CUDA kernel extension from modules/kernels.')
         if precisions is None:
             precisions = supported_bits
         if not isinstance(precisions, list):

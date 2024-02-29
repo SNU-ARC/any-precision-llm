@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, PreTrainedModel, PreTrainedTokenizer, AutoTokenizer
+from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer
 
 
 def load_model(model_str_or_model):

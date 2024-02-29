@@ -4,11 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 import argparse
 import numpy as np
 import numba
-import transformers
-from analyzer import get_analyzer
-
-import utils
-
+from .analyzer import get_analyzer
+from .utils import load_model
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
@@ -339,7 +336,7 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
     print(f"Upscaling from {seed_precision} to {parent_precision}")
 
     print("Loading original model weights...")
-    model = utils.load_model(model)
+    model = load_model(model)
 
     if analyzer is None:
         analyzer = get_analyzer(model)
