@@ -97,4 +97,5 @@ class AutoAPForCausalLM(BaseAPForCausalLM):
     def get_model_layers(self):
         if self._model_layers is None:
             raise ValueError("Model layers not set")
-        return self._model_layers
+        for name, module in self._model_layers.named_children():
+            yield module

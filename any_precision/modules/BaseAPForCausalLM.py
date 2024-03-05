@@ -95,7 +95,7 @@ class BaseAPForCausalLM(nn.Module):
     def from_quantized(
             cls,
             quant_model_path,
-            model_config,
+            model_config=None,
             max_new_tokens=None,
             torch_dtype=torch.float16,
             trust_remote_code=True,
@@ -137,7 +137,7 @@ class BaseAPForCausalLM(nn.Module):
             config=config,
             precisions=precisions,
             supported_bits=supported_bits,
-            model_config = model_config,
+            model_config=model_config,
         )
 
         # Prepare AnyPrecisionLinear layers, replace nn.Linear
