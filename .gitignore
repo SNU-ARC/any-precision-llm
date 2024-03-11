@@ -160,7 +160,7 @@ cython_debug/
 .idea/
 
 # Cache folder
-any_precision/cache/
+cache/
 
 # JSON files
 *.json
