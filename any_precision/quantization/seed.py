@@ -79,11 +79,11 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
 
     pool = Pool(cpu_count)
 
-    with tqdm(total=len(analyzer.get_module_names()) * len(model_weights), desc="Quantizing layers") as pbar:
+    with tqdm(total=len(analyzer.module_names) * len(model_weights), desc="Quantizing layers") as pbar:
         for l in range(len(model_weights)):
             if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
                 logging.info(f"Skipping layer {l}, file already exists")
-                pbar.update(len(analyzer.get_module_names()))
+                pbar.update(len(analyzer.module_names))
                 continue
 
             gradient_layer = gradients[l]
@@ -91,7 +91,7 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
 
             # generate kmeans tasks
             kmeans_jobs_by_module = []
-            for name in analyzer.get_module_names():
+            for name in analyzer.module_names:
                 g = gradient_layer[name].float().numpy()
 
                 module_weight = model_layer[name]
@@ -124,7 +124,7 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
             lut_per_layer, weight_per_layer = {}, {}
 
             # postprocess kmeans results
-            for i, name in enumerate(analyzer.get_module_names()):
+            for i, name in enumerate(analyzer.module_names):
                 lut_per_row, weight_per_row = [], []
                 module_weight = model_layer[name]
                 for j in range(module_weight.shape[0]):

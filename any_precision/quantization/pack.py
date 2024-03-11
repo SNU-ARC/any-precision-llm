@@ -133,9 +133,9 @@ def pack(model,
     model_weights = analyzer.get_model_weights()
 
     num_layers = len(model_weights)
-    model_name = analyzer.get_model_name()
-    layers_name = analyzer.get_layers_name()
-    module_names = analyzer.get_module_names()
+    model_name = analyzer.model_name
+    layers_name = analyzer.layers_name
+    module_names = analyzer.module_names
 
     args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision) for
                  layer_idx in range(num_layers)]
@@ -151,9 +151,12 @@ def pack(model,
     config = model.config
 
     # add new config parameters
-    config.anyprec_seed_precision = seed_precision
-    config.anyprec_parent_precision = parent_precision
-    config.anyprec_model_type = analyzer.model_type
+    anyprec_configs = {
+        'seed_precision': seed_precision,
+        'parent_precision': parent_precision,
+        'arch_config': analyzer.get_arch_config()
+    }
+    config.anyprec = anyprec_configs
 
     os.makedirs(output_model_path, exist_ok=True)
     torch.save(state_dict, os.path.join(output_model_path, 'pytorch_model.bin'))

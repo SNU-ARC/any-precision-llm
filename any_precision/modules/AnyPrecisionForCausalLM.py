@@ -12,7 +12,7 @@ from accelerate.big_modeling import (
     init_empty_weights,
     load_checkpoint_and_dispatch,
 )
-import os
+
 from .AnyPrecisionLinear import AnyPrecisionLinear
 
 
@@ -38,20 +38,18 @@ def set_op_by_name(layer, name, new_module):
         setattr(layer, name, new_module)
 
 
-class BaseAPForCausalLM(nn.Module):
+class AnyPrecisionForCausalLM(nn.Module):
     def __init__(
-            self, model, model_type, is_quantized, config, precisions, supported_bits, model_config=None
+            self, model, is_quantized, config, precisions, supported_bits
     ):
         super().__init__()
         self.model: PreTrainedModel = model
-        self.model_type: str = model_type
         self.is_quantized: bool = is_quantized
         self.search_result = None
         self.config: PretrainedConfig = config
         self.precisions = precisions
         self.supported_bits = supported_bits
         self.precision = max(self.precisions)
-        self.model_config = model_config if model_config is not None else dict()
 
     def forward(self, *args, **kwargs):
         if 'precision' in kwargs:
@@ -92,7 +90,6 @@ class BaseAPForCausalLM(nn.Module):
     def from_quantized(
             cls,
             quant_model_path,
-            model_config=None,
             max_new_tokens=None,
             torch_dtype=torch.float16,
             trust_remote_code=True,
@@ -119,8 +116,8 @@ class BaseAPForCausalLM(nn.Module):
                 # attn_implementation="flash_attention_2",
             )
 
-        supported_bits = list(range(config.anyprec_seed_precision,
-                                    config.anyprec_parent_precision + 1))
+        supported_bits = list(range(config.anyprec['seed_precision'],
+                                    config.anyprec['parent_precision'] + 1))
         if precisions is None:
             precisions = supported_bits
         else:
@@ -130,12 +127,10 @@ class BaseAPForCausalLM(nn.Module):
 
         ap_model = cls(
             model,
-            config.model_type,
             is_quantized=is_quantized,
             config=config,
             precisions=precisions,
             supported_bits=supported_bits,
-            model_config=model_config,
         )
 
         # Prepare AnyPrecisionLinear layers, replace nn.Linear
@@ -221,9 +216,9 @@ class BaseAPForCausalLM(nn.Module):
 
     def get_model_layers(self):
         module = self.model
-        for attrib_name in self.model_config['model_name'].split('.'):
+        for attrib_name in self.config.anyprec['arch_config']['model_name'].split('.'):
             module = getattr(module, attrib_name)
-        return getattr(module, self.model_config['layers_name'])
+        return getattr(module, self.config.anyprec['arch_config']['layers_name'])
 
     def fuse_layers(self):
         if 'fuse_target_layers' not in self.model_config:
@@ -233,7 +228,11 @@ class BaseAPForCausalLM(nn.Module):
 
     @property
     def layer_type(self):
-        return self.model_config['layer_type']
+        for layer in self.get_model_layers():
+            layer_class_name = layer.__class__.__name__
+            if layer_class_name.endswith("DecoderLayer"):
+                return layer_class_name
+        return None
 
     @property
     def max_new_tokens_key(self):

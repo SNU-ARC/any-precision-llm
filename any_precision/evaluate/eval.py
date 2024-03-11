@@ -3,9 +3,8 @@ from tqdm import tqdm
 import torch
 from .helpers.utils import vprint, logprint, get_tokenizer_type
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from ..modules import BaseAPForCausalLM
+from ..modules import AnyPrecisionForCausalLM
 import os
-from ..modules import AutoAPLoader
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -26,7 +25,7 @@ def auto_model_load(model_path, device='cuda', dtype=torch.float16, verbose=True
 
     if 'anyprec-' in model_path:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoAPLoader.from_quantized(model_path).to(device)
+        model = AnyPrecisionForCausalLM.from_quantized(model_path).to(device)
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,
@@ -60,7 +59,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
     Note that the perplexity scores are calculated over non-overlapping chunks of the test set.
     """
 
-    if isinstance(model, BaseAPForCausalLM):
+    if isinstance(model, AnyPrecisionForCausalLM):
         is_anyprec = True
     else:
         is_anyprec = False

@@ -1,0 +1,12 @@
+architecture: "Phi2ForCausalLM"
+arch_config:
+  model_name: "model"
+  layers_name: "layers"
+  module_names:
+    - "self_attn.q_proj"
+    - "self_attn.k_proj"
+    - "self_attn.v_proj"
+    - "self_attn.o_proj"
+    - "self_attn.dense"
+    - "mlp.fc1"
+    - "mlp.fc2"
