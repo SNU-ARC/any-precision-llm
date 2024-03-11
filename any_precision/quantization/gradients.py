@@ -83,11 +83,11 @@ if __name__ == "__main__":
     parser.add_argument("--num_examples", type=int, default=None,
                         help="Number of examples to use for gradient calculation")
     parser.add_argument("--output_dir", type=str, default=default_output_dir, help="Output directory for gradients")
-    parser.add_argument("--model_type", type=str, default=None, help="Model type to use for gradient calculation")
     args = parser.parse_args()
     get_gradients(args.model_name_or_path,
-                  args.model_type,
+                  args.model_name_or_path,
                   args.dataset,
                   args.seq_len,
                   args.num_examples,
+                  None,
                   args.output_dir)

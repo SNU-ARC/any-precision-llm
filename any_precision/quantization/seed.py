@@ -145,7 +145,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('model', type=str, help='model weights to load', )
-    parser.add_argument('--model_type', type=str, default=None, help='model type')
     parser.add_argument('gradient', type=str, help='model gradients to load', )
     parser.add_argument('bit', type=int, default=3, help='bitwidth', choices=[2, 3, 4, 5, 6, 7, 8], )
     parser.add_argument('--range', type=str, default=None, help='range of layers to quantize')
@@ -156,4 +155,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
-    get_seed(args.model, args.gradient, args.bit, args.output_folder, args.model_type, args.cores)
+    get_seed(args.model, args.gradient, args.bit, args.output_folder, args.cores)

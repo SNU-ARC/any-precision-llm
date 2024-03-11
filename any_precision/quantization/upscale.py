@@ -14,10 +14,7 @@ parser.add_argument(
     '--model', type=str,
     help='model weights to load', required=True
 )
-parser.add_argument(
-    '--model_type', type=str, default=None,
-    help='model type', choices=['llama', 'opt', 'mistral', 'phi-2']
-)
+
 parser.add_argument(
     '--gradient', type=str,
     help='model gradients to load', required=True
@@ -422,7 +419,7 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
 
 if __name__ == "__main__":
     # args = parser.parse_args()
-    # upscale(args.orig_bit, args.bit, args.model_type, args.lut_src, args.lut_dest, args.gradient, args.model)
+    # upscale(args.orig_bit, args.bit, args.lut_src, args.lut_dest, args.gradient, args.model)
     upscale(3, 8, 'opt', None, '../cache/seed/(opt-1.3b)-c4-w3',
             '../cache/parent/(opt-1.3b)-c4-w8_orig3',
             '../cache/gradients/(opt-1.3b)-c4.pt',  os.cpu_count())
