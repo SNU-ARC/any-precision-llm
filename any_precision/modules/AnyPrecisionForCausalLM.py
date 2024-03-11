@@ -235,9 +235,5 @@ class AnyPrecisionForCausalLM(nn.Module):
         return None
 
     @property
-    def max_new_tokens_key(self):
-        return self.model_config['max_new_tokens_key']
-
-    @property
     def device(self):
         return self.model.device

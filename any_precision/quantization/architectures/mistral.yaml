@@ -10,4 +10,3 @@ arch_config:
     - "mlp.gate_proj"
     - "mlp.up_proj"
     - "mlp.down_proj"
-  max_new_tokens_key: "max_position_embeddings"

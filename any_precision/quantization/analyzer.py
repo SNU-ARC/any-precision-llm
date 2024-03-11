@@ -49,12 +49,11 @@ class ModelAnalyzer:
     constructor. Alternatively, you can instantiate from a yaml file using the from_yaml method.
     """
 
-    def __init__(self, model: AutoModelForCausalLM, module_names, model_name, layers_name, max_new_tokens_key):
+    def __init__(self, model: AutoModelForCausalLM, module_names, model_name, layers_name):
         self.model = model
         self.module_names = module_names
         self.model_name = model_name
         self.layers_name = layers_name
-        self.max_new_tokens_key = max_new_tokens_key
 
     @classmethod
     def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict):
@@ -65,7 +64,6 @@ class ModelAnalyzer:
             "module_names": self.module_names,
             "model_name": self.model_name,
             "layers_name": self.layers_name,
-            "max_new_tokens_key": self.max_new_tokens_key
         }
         return quant_config
 
@@ -121,7 +119,6 @@ class AutoArchConfig:
             "module_names": self.get_module_names(),
             "model_name": self.get_model()[0],
             "layers_name": self.get_layers()[0],
-            "max_new_tokens_key": 'max_position_embeddings'  # TODO: make this dynamic
         }
 
     def get_module_names(self):

@@ -9,4 +9,3 @@ arch_config:
     - "self_attn.out_proj"
     - "fc1"
     - "fc2"
-  max_new_tokens_key: "max_position_embeddings"
