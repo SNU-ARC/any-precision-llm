@@ -27,7 +27,7 @@ def quantize_any_precision(model,
                            seed_precision=DEFAULT_SEED_PRECISION,
                            parent_precision=DEFAULT_PARENT_PRECISION,
                            mode='upscale',
-                           model_type=None, cache_dir=DEFAULT_CACHE_DIR,
+                           yaml_path=None, cache_dir=DEFAULT_CACHE_DIR,
                            dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
                            cpu_count=os.cpu_count(),
                            recalculate_gradients=False,
@@ -60,7 +60,7 @@ def quantize_any_precision(model,
     model = load_model(model)
     tokenizer = load_tokenizer(model_string)
 
-    analyzer = get_analyzer(model, yaml_path=model_type)
+    analyzer = get_analyzer(model, yaml_path=yaml_path)
 
     # ------------------- Gradients -------------------
 

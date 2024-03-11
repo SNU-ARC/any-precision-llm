@@ -7,7 +7,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed_precision", type=int, help="The precision to quantize the seed to")
     parser.add_argument("--parent_precision", type=int, help="The precision to quantize the parent to")
     parser.add_argument("--mode", type=str, default="upscale", help="The mode to run in")
-    parser.add_argument("--model_type", type=str, help="The type of model to use")
+    parser.add_argument("--yaml_path", type=str, help="The path to the architecture config yaml file")
     parser.add_argument("--cache_dir", type=str, help="The directory to cache results in")
     parser.add_argument("--dataset", type=str, help="The dataset to use")
     parser.add_argument("--seq_len", type=int, help="The sequence length to use")

@@ -43,7 +43,7 @@ python -m quantization.main <model> [options]
 - `--seed_precision`: The precision to quantize the seed to.
 - `--parent_precision`: The precision to quantize the parent to.
 - `--mode`: The mode to run in (`gradients`, `seed`, or `upscale`. Use `upscale` for full pipeline.).
-- `--model_type`: The type of model to use.
+- `--yaml`: The YAML file to use to configure the model architecture. Leave empty to use the default.
 - `--cache_dir`: The directory to cache results in.
 - `--dataset`: The dataset to use for gradient calculation.
 - `--seq_len`: The sequence length to use for gradient calculation.
