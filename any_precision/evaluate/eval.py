@@ -1,21 +1,21 @@
 from .helpers import dataloader
 from tqdm import tqdm
 import torch
-from .helpers.utils import vprint, logprint, model_name_parser, base_model_name_to_hf_repo_name, get_tokenizer_type
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
+from .helpers.utils import vprint, logprint, get_tokenizer_type
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from ..modules import BaseAPForCausalLM
 import os
-from ..models import AutoAPLoader
+from ..modules import AutoAPLoader
 
-
-# from algorithms.SqueezeLLM.llama import load_quant as sqllm_load_quant
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 @torch.no_grad()
-def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=True):
+def auto_model_load(model_path, device='cuda', dtype=torch.float16, verbose=True):
     """
     Args:
         model_path: path of the model to evaluate
-        device_map: device to use for evaluation
+        device: the device to use for evaluation, either 'cuda' or 'cpu'
         dtype: the dtype to use for evaluation, either torch.float16 or torch.float32
         verbose: whether to print progress
 
@@ -26,13 +26,13 @@ def auto_model_load(model_path, device_map='auto', dtype=torch.float16, verbose=
 
     if 'anyprec-' in model_path:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoAPLoader.from_quantized(model_path).cuda()
+        model = AutoAPLoader.from_quantized(model_path).to(device)
     else:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=dtype,
-                                                     trust_remote_code=True).cuda()
+                                                     trust_remote_code=True).to(device)
 
-    # logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
+    logprint(verbose, f"{model.__class__.__name__} model loaded to device: {model.device}")
 
     tokenizer_type = get_tokenizer_type(model_path)
 
@@ -60,7 +60,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
     Note that the perplexity scores are calculated over non-overlapping chunks of the test set.
     """
 
-    if hasattr(model, 'set_precision'):
+    if isinstance(model, BaseAPForCausalLM):
         is_anyprec = True
     else:
         is_anyprec = False
@@ -73,7 +73,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
     for bit in supported_bits:
         if is_anyprec:
-            logprint(verbose, f"Setting model precision to {bit}-bit...")
+            logprint(verbose, f"<<<< Setting model precision to {bit}-bit... >>>>")
             model.set_precision(bit)
 
         for testcase_name in testcases:
@@ -81,8 +81,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
             input_tokens = load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
 
-            # input_tokens.to(model.device)
-            input_tokens.to('cuda')
+            input_tokens.to(model.device)
 
             logprint(verbose, "Calculating perplexity...")
 
@@ -117,7 +116,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
 def load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose):
     """ Load input tokens from cache if available, otherwise load from dataloader and save to cache. """
-    input_tokens_cache_path = f"input_tokens_cache/dataloader-{tokenizer_type}-{testcase_name}-test.pt"
+    input_tokens_cache_path = f"{current_dir}/input_tokens_cache/dataloader-{tokenizer_type}-{testcase_name}-test.pt"
     if tokenizer_type and os.path.exists(input_tokens_cache_path):
         logprint(verbose, f"Loading cached input tokens from {input_tokens_cache_path}...")
         input_tokens = torch.load(input_tokens_cache_path)

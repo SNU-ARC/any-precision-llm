@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(
 
 
 if __name__ == '__main__':
-    model_path = './cache/packed/anyprec-(gemma-2b)-w8_orig3-c4_s100_blk512'
+    model_path = './cache/packed/anyprec-(Mistral-7B-v0.1)-w8_orig3-c4_s100_blk512'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoAPLoader.from_quantized(model_path, precisions=[3, 4, 5, 6])

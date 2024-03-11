@@ -26,6 +26,4 @@ class AutoAPLoader:
                     model_config = yaml.safe_load(f)
             except FileNotFoundError:
                 raise ValueError(f"Unsupported model type: {config.anyprec_model_type}")
-            except:
-                raise ValueError(f"Failed to load model config: {config.anyprec_model_type}")
             return BaseAPForCausalLM.from_quantized(quant_model_path, model_config, *args, **kwargs)

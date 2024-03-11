@@ -26,40 +26,26 @@ class AnyPrecisionLinear(nn.Module):
         self.precision = max(self.precisions)
         self.supported_bits = supported_bits
 
-        # size of buffer refined later
         self.register_buffer(
             'qweight',
-            torch.empty(
-                (max(supported_bits), out_features, in_features // 32),
-                dtype=torch.int32,
-                device=device
-            )
+            torch.empty((max(supported_bits), out_features, in_features // 32), dtype=torch.int32, device=device)
         )
 
-        # unsupported lut table will removed later
         for bit in supported_bits:
             self.register_buffer(
                 f'lut{bit}',
-                torch.empty(
-                    (out_features, 2 ** bit),
-                    dtype=torch.float16,
-                    device=device
-                )
+                torch.empty((out_features, 2 ** bit), dtype=torch.float16, device=device)
             )
 
         if bias:
             self.register_buffer(
                 "bias",
-                torch.empty(
-                    (out_features,),
-                    dtype=torch.float16,
-                    device=device
-                ),
+                torch.empty((out_features,), dtype=torch.float16, device=device)
             )
         else:
             self.bias = None
 
-    def refine_bits(self):
+    def prune_precisions(self):
         self.qweight = self.qweight[:max(self.precisions)]
         for bit in self.supported_bits:
             if bit not in self.precisions:

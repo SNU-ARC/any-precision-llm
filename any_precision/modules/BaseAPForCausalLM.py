@@ -53,9 +53,6 @@ class BaseAPForCausalLM(nn.Module):
         self.precision = max(self.precisions)
         self.model_config = model_config if model_config is not None else dict()
 
-    def to(self, device: str):
-        return self.model.to(device)
-
     def forward(self, *args, **kwargs):
         if 'precision' in kwargs:
             prev_precision = self.precision
@@ -127,6 +124,7 @@ class BaseAPForCausalLM(nn.Module):
         if precisions is None:
             precisions = supported_bits
         else:
+            assert len(precisions) == len(set(precisions)), "Precisions must be unique"
             assert all(bit in supported_bits for bit in precisions), \
                 f"Supported bits {precisions} must be a subset of model supported bits {supported_bits}"
 
@@ -147,16 +145,7 @@ class BaseAPForCausalLM(nn.Module):
 
         ap_model.tie_weights()
 
-        # Look for the weights file and load it
-        for file in os.listdir(quant_model_path):
-            file_path = os.path.join(quant_model_path, file)
-            if file.endswith('.bin'):
-                q_model = torch.load(file_path, map_location="cpu")
-                break
-        else:
-            raise FileNotFoundError(f"No weights file found in {quant_model_path}")
-
-        device_map = {key: 'cpu' for key in q_model.keys()}
+        device_map = {key: 'cpu' for key in ap_model.model.state_dict().keys()}
 
         # loads the weights into modules and distributes
         # across available devices automatically
@@ -173,7 +162,7 @@ class BaseAPForCausalLM(nn.Module):
         if fuse_layers:
             ap_model.fuse_layers()
 
-        ap_model.refine_maxbits_linears()
+        ap_model.prune_precisions()
 
         return ap_model
 
@@ -206,14 +195,13 @@ class BaseAPForCausalLM(nn.Module):
             torch.cuda.empty_cache()
             gc.collect()
 
-    def refine_maxbits_linears(self):
+    def prune_precisions(self):
         # Get blocks of model
         layers = self.get_model_layers()
-        for layer in tqdm(layers, desc="Replacing layers..."):
-            # Get every linear layer in a block and refine bits
+        for layer in layers:
             named_linears = get_AP_linears(layer)
             for _, module in named_linears.items():
-                module.refine_bits()
+                module.prune_precisions()
 
         torch.cuda.empty_cache()
         gc.collect()
@@ -250,3 +238,7 @@ class BaseAPForCausalLM(nn.Module):
     @property
     def max_new_tokens_key(self):
         return self.model_config['max_new_tokens_key']
+
+    @property
+    def device(self):
+        return self.model.device
