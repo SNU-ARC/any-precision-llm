@@ -1,10 +1,15 @@
+import torch
 from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer
 
 
-def load_model(model_str_or_model):
+def load_model(model_str_or_model, dtype=torch.bfloat16):
     """Returns a model from a string or a model object. If a string is passed, it will be loaded from the HuggingFace"""
     if isinstance(model_str_or_model, str):
-        model = AutoModelForCausalLM.from_pretrained(model_str_or_model, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_str_or_model,
+            trust_remote_code=True,
+            torch_dtype=dtype
+        )
     else:
         assert isinstance(model_str_or_model, PreTrainedModel), "model must be a string or a PreTrainedModel"
         model = model_str_or_model

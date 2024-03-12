@@ -50,7 +50,7 @@ def _kmeans_fit(args_tuple):
     return cluster_centers, labels
 
 
-def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_count=None):
+def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
@@ -64,13 +64,7 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
     if not os.path.exists(weight_folder):
         os.makedirs(weight_folder)
 
-    model = load_model(model)
-
-    if analyzer is None:
-        analyzer = get_analyzer(model)
-
     model_weights = analyzer.get_model_weights()
-    del model
 
     if isinstance(gradients, str):
         gradients = torch.load(gradients)
@@ -139,20 +133,3 @@ def get_seed(model, gradients, bit_width, output_folder, analyzer=None, cpu_coun
             torch.save(weight_per_layer, f"{weight_folder}/l{l}.pt")
 
     pool.close()
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('model', type=str, help='model weights to load', )
-    parser.add_argument('gradient', type=str, help='model gradients to load', )
-    parser.add_argument('bit', type=int, default=3, help='bitwidth', choices=[2, 3, 4, 5, 6, 7, 8], )
-    parser.add_argument('--range', type=str, default=None, help='range of layers to quantize')
-    parser.add_argument('output_folder', type=str, help='path to dump the output')
-    parser.add_argument('--cores', type=int, default=None,
-                        help='number of cores to use for parallelization')
-
-    args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
-
-    get_seed(args.model, args.gradient, args.bit, args.output_folder, args.cores)

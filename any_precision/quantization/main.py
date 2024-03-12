@@ -23,7 +23,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 
-def quantize_any_precision(model,
+def any_precision_quantize(model,
                            seed_precision=DEFAULT_SEED_PRECISION,
                            parent_precision=DEFAULT_PARENT_PRECISION,
                            mode='upscale',
@@ -62,6 +62,8 @@ def quantize_any_precision(model,
 
     analyzer = get_analyzer(model, yaml_path=yaml_path)
 
+    del model
+
     # ------------------- Gradients -------------------
 
     logging.info("------------------- Gradients -------------------")
@@ -76,12 +78,11 @@ def quantize_any_precision(model,
         logging.info("Beginning gradient calculation...")
         # this will overwrite the gradients cache if it already exists
         model_gradients = get_gradients(
-            model=model,
+            analyzer=analyzer,
             tokenizer=tokenizer,
             dataset=dataset,
             seq_len=seq_len,
             num_examples=num_examples,
-            analyzer=analyzer,
             save_path=gradients_cache_path,
         )
         logging.info("Gradient calculation complete.")
@@ -106,11 +107,10 @@ def quantize_any_precision(model,
 
     # this skips over existing layers in the cache, and doesn't overwrite them
     get_seed(
-        model=model,
+        analyzer=analyzer,
         gradients=model_gradients,
         bit_width=seed_precision,
         output_folder=seed_cache_path,
-        analyzer=analyzer,
         cpu_count=cpu_count,
     )
     logging.info("Seed calculation complete.")
@@ -126,15 +126,16 @@ def quantize_any_precision(model,
                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
     upscale(
-        model=model,
+        analyzer=analyzer,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
-        analyzer=analyzer,
         seed_parameters_path=seed_cache_path,
         parent_parameters_path=parent_cache_path,
         gradients=model_gradients,
         cpu_count=cpu_count,
     )
+
+    del model_gradients  # free up memory
 
     logging.info("Upscale complete.")
 
@@ -149,14 +150,15 @@ def quantize_any_precision(model,
         logging.info(f"Model output path {model_output_path} already exists and is not empty.")
         input(f"To proceed and overwrite {model_output_path}, press Enter. Else, press Ctrl+C to abort.")
 
+    analyzer.drop_original_weights()  # drop the original weights to save memory
+
     pack(
-        model=model,
+        analyzer=analyzer,
         tokenizer=tokenizer,
         lut_path=parent_cache_path,
         output_model_path=model_output_path,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
-        analyzer=analyzer,
         cpu_count=cpu_count,
     )
 

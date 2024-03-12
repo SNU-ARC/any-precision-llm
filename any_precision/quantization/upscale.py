@@ -199,7 +199,7 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
 
 
 @numba.njit(parallel=True)
-def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
+def _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
     # The shape of LUTs are different for each module and bit.
     # The logical thing to do would be to use a list of lists(for each bit-width) of numpy arrays(for each module).
     # However as numba doesn't like nested python lists, we will use a list of numpy arrays instead,
@@ -249,6 +249,13 @@ def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit
                 parent_weights_by_modules[m_idx][r_idx][g_idx] = parent_weights_per_group
 
     return lut_by_modules_by_bit, parent_weights_by_modules
+
+
+def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
+    # Convert the torch tensors to numpy arrays and to float32 so that numba can use them
+    model_layer = [x.float().numpy() for x in model_layer]
+    gradient_layer = [x.float().numpy() for x in gradient_layer]
+    return _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit)
 
 
 def __load_values(seed_lut_path, seed_weights_path, layer_names, l):
@@ -315,7 +322,7 @@ def _load_progress(ran, parent_parameters_path, seed_precision, parent_precision
     return todo_ran, processed_ran
 
 
-def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_path,
+def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
             parent_parameters_path, gradients, cpu_count=None):
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -333,12 +340,8 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
     print(f"Upscaling from {seed_precision} to {parent_precision}")
 
     print("Loading original model weights...")
-    model = load_model(model)
 
-    if analyzer is None:
-        analyzer = get_analyzer(model)
-
-    model_weights = analyzer.get_model_weights()  # TODO: just use the model directly, to prevent loading the model twice
+    model_weights = analyzer.get_model_weights()
 
     ran = list(range(len(model_weights)))
 
@@ -352,20 +355,16 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
     module_names = analyzer.module_names
 
     # Format the weights and gradients
-    # TODO: check that this doesn't use double the memory
     print("Formatting weights and gradients...")
     model_weights_by_layer = []
     gradients_by_layer = []
     for l in ran:
         model_layer_list, gradient_layer_list = [], []
         for name in module_names:
-            model_layer_list.append(model_weights[l].pop(name).float().numpy())
-            gradient_layer_list.append(gradients[l].pop(name).float().numpy())
+            model_layer_list.append(model_weights[l][name])
+            gradient_layer_list.append(gradients[l][name])
         model_weights_by_layer.append(model_layer_list)
         gradients_by_layer.append(gradient_layer_list)
-
-    del model_weights
-    del gradients
 
     ran, completed = _load_progress(ran, parent_parameters_path, seed_precision, parent_precision)
 
@@ -399,7 +398,8 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
                     future_load = io_executor.submit(load_values, l + 1)
 
                 luts_by_modules_by_bit, parent_weights = _upscale_layer(seed_lut_layer, seed_qweight_layer,
-                                                                        model_weights_by_layer[l], gradients_by_layer[l],
+                                                                        model_weights_by_layer[l],
+                                                                        gradients_by_layer[l],
                                                                         seed_precision,
                                                                         parent_precision)
 
@@ -410,16 +410,9 @@ def upscale(model, seed_precision, parent_precision, analyzer, seed_parameters_p
             seed_lut_layer, seed_qweight_layer = load_values(l)
 
             luts_by_modules_by_bit, parent_weights = _upscale_layer(seed_lut_layer, seed_qweight_layer,
-                                                                    model_weights_by_layer[l], gradients_by_layer[l],
+                                                                    model_weights_by_layer[l],
+                                                                    gradients_by_layer[l],
                                                                     seed_precision,
                                                                     parent_precision)
 
             save_results(luts_by_modules_by_bit, parent_weights, l)
-
-
-if __name__ == "__main__":
-    # args = parser.parse_args()
-    # upscale(args.orig_bit, args.bit, args.lut_src, args.lut_dest, args.gradient, args.model)
-    upscale(3, 8, 'opt', None, '../cache/seed/(opt-1.3b)-c4-w3',
-            '../cache/parent/(opt-1.3b)-c4-w8_orig3',
-            '../cache/gradients/(opt-1.3b)-c4.pt',  os.cpu_count())

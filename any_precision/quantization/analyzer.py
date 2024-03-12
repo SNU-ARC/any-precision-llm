@@ -54,6 +54,10 @@ class ModelAnalyzer:
         self.module_names = module_names
         self.model_name = model_name
         self.layers_name = layers_name
+        self.config = model.config
+        self.state_dict = model.state_dict()
+        self.dropped_original_weights = False
+        self.num_layers = len(self.get_model_weights())
 
     @classmethod
     def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict):
@@ -75,6 +79,8 @@ class ModelAnalyzer:
 
     def get_layers(self):
         """Return the layers of the model."""
+        if self.dropped_original_weights:
+            raise ValueError("Original weights have been dropped")
         module = self.get_model()
         for attrib_name in self.layers_name.split('.'):
             module = getattr(module, attrib_name)
@@ -92,6 +98,8 @@ class ModelAnalyzer:
 
     def get_model_weights(self):
         """Return the relevant weights of the model."""
+        if self.dropped_original_weights:
+            raise ValueError("Original weights have been dropped")
         layers = self.get_layers()
         model_layers = []
         for layer in layers:
@@ -104,10 +112,24 @@ class ModelAnalyzer:
 
     def get_model(self):
         """Return the model."""
+        if self.dropped_original_weights:
+            raise ValueError("Original weights have been dropped")
         module = self.model
         for attrib_name in self.model_name.split('.'):
             module = getattr(module, attrib_name)
         return module
+
+    def drop_original_weights(self):
+        weight_key_prefixes = [f'{self.model_name}.{self.layers_name}.{i}' for i in range(self.num_layers)]
+        weight_key_postfix = 'weight'
+        for prefix in weight_key_prefixes:
+            for module_name in self.module_names:
+                key = f"{prefix}.{module_name}.{weight_key_postfix}"
+                self.state_dict.pop(key)
+
+        self.model = None
+        self.dropped_original_weights = True
+
 
 
 class AutoArchConfig:

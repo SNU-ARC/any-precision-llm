@@ -1,5 +1,5 @@
 import argparse
-from any_precision.quantization import quantize_any_precision
+from any_precision.quantization import any_precision_quantize
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Quantize a model to any precision")
@@ -20,4 +20,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # only pass options that are not None
-    quantize_any_precision(**{k: v for k, v in args.__dict__.items() if v is not None})
+    any_precision_quantize(**{k: v for k, v in args.__dict__.items() if v is not None})

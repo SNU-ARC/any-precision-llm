@@ -1,1 +1,1 @@
-from .main import quantize_any_precision
+from .main import any_precision_quantize

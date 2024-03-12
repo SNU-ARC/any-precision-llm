@@ -113,48 +113,45 @@ def _process_layer_data(args):
     return layer_idx, layer_data
 
 
-def pack(model,
-         tokenizer,
-         lut_path,
-         output_model_path,
-         seed_precision,
-         parent_precision,
-         analyzer=None,
-         cpu_count=None):
+def pack(
+        analyzer,
+        tokenizer,
+        lut_path,
+        output_model_path,
+        seed_precision,
+        parent_precision,
+        cpu_count=None
+):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 
-    model = load_model(model)
     tokenizer = load_tokenizer(tokenizer)
 
-    if analyzer is None:
-        analyzer = get_analyzer(model)
-    state_dict = model.state_dict()
-    model_weights = analyzer.get_model_weights()
+    num_layers = analyzer.num_layers
 
-    num_layers = len(model_weights)
     model_name = analyzer.model_name
     layers_name = analyzer.layers_name
     module_names = analyzer.module_names
+    config = analyzer.config  # original model config
+    arch_config = analyzer.get_arch_config()
+
+    state_dict = analyzer.state_dict
 
     args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision) for
                  layer_idx in range(num_layers)]
 
+    input('wait')
+
     with Pool(cpu_count) as pool:
         for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers):
             for key, value in layer_data.items():
-                if '.qweight' in key:
-                    del state_dict[key.replace('.qweight', '.weight')]  # Delete original weights
                 state_dict[key] = torch.from_numpy(value)  # Update with modified weights
-
-    # get original model config
-    config = model.config
 
     # add new config parameters
     anyprec_configs = {
         'seed_precision': seed_precision,
         'parent_precision': parent_precision,
-        'arch_config': analyzer.get_arch_config()
+        'arch_config': arch_config
     }
     config.anyprec = anyprec_configs
 
@@ -163,10 +160,3 @@ def pack(model,
     tokenizer.save_pretrained(output_model_path)
     config.save_pretrained(output_model_path)
     logging.info(f"Model saved to {output_model_path}")
-
-
-if __name__ == '__main__':
-    pack('facebook/opt-1.3b',
-         'facebook/opt-1.3b',
-         '../cache/parent/(opt-1.3b)-w8_orig3-c4_s100_blk512',
-         '../models/test.pt', 3, 8)

@@ -9,18 +9,19 @@ from .analyzer import get_analyzer
 from .datautils import get_tokens
 
 
-def get_gradients(model,
-                  tokenizer,
-                  dataset=DEFAULT_DATASET,
-                  seq_len=DEFAULT_SEQ_LEN,
-                  num_examples=DEFAULT_NUM_EXAMPLES,
-                  analyzer=None,
-                  save_path=None):
+def get_gradients(
+        analyzer,
+        tokenizer,
+        dataset=DEFAULT_DATASET,
+        seq_len=DEFAULT_SEQ_LEN,
+        num_examples=DEFAULT_NUM_EXAMPLES,
+        save_path=None
+):
     logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
                  f"{num_examples} examples...")
     logging.info(f"Fetching {dataset} dataset...")
 
-    model = load_model(model)
+    model = analyzer.model
     tokenizer = load_tokenizer(tokenizer)
 
     input_tokens = get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
@@ -71,23 +72,3 @@ def get_gradients(model,
         torch.save(gradients, save_path)
 
     return gradients
-
-
-if __name__ == "__main__":
-    default_output_dir = '../cache/gradients'
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, default=None, help="Dataset to use for gradient calculation")
-    parser.add_argument("--model_name_or_path", type=str, help="Model to use for gradient calculation")
-    parser.add_argument("--seq_len", type=int, default=None, help="Sequence length to use for gradient calculation")
-    parser.add_argument("--num_examples", type=int, default=None,
-                        help="Number of examples to use for gradient calculation")
-    parser.add_argument("--output_dir", type=str, default=default_output_dir, help="Output directory for gradients")
-    args = parser.parse_args()
-    get_gradients(args.model_name_or_path,
-                  args.model_name_or_path,
-                  args.dataset,
-                  args.seq_len,
-                  args.num_examples,
-                  None,
-                  args.output_dir)
