@@ -140,8 +140,6 @@ def pack(
     args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision) for
                  layer_idx in range(num_layers)]
 
-    input('wait')
-
     with Pool(cpu_count) as pool:
         for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers):
             for key, value in layer_data.items():
