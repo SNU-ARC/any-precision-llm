@@ -53,7 +53,7 @@ class ModelAnalyzer:
         self.config = model.config
         self.state_dict = model.state_dict()
         self.dropped_original_weights = False
-        self.num_layers = len(self.get_model_weights())
+        self.num_layers = len(self.get_layers())
 
     @classmethod
     def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict):

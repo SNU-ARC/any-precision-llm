@@ -30,7 +30,9 @@ def get_gradients(
 
     model = model.bfloat16()
     model.eval()
-    model.cuda()
+
+    if model.device.type != 'cuda':
+        model.cuda()
 
     layers = analyzer.get_layers()
 
@@ -44,7 +46,7 @@ def get_gradients(
 
     # Calculate gradients through loss.backward()
     for tokens in tqdm(input_tokens, desc="Calculating gradients"):
-        tokens = tokens.cuda()
+        tokens = tokens.to(model.device)
         tokens = tokens.unsqueeze(0)
         outputs = model(input_ids=tokens, labels=tokens)
         loss = outputs.loss

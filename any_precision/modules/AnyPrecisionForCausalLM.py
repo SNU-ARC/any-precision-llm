@@ -17,14 +17,6 @@ from .AnyPrecisionLinear import AnyPrecisionLinear
 from any_precision.analyzer.analyzer import get_analyzer
 
 
-def get_named_linears(module):
-    return {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
-
-
-def get_AP_linears(module):
-    return {name: m for name, m in module.named_modules() if isinstance(m, AnyPrecisionLinear)}
-
-
 def set_op_by_name(layer, name, new_module):
     levels = name.split('.')
     if len(levels) > 1:
@@ -41,17 +33,63 @@ def set_op_by_name(layer, name, new_module):
 
 class AnyPrecisionForCausalLM(nn.Module):
     def __init__(
-            self, model, is_quantized, config, precisions, supported_bits
+            self,
+            model_path,
+            config,
+            precisions=None,
+            torch_dtype=torch.float16,
+            fuse_layers=False,
+            trust_remote_code=True,
     ):
         super().__init__()
-        self.model: PreTrainedModel = model
-        self.is_quantized: bool = is_quantized
-        self.search_result = None
-        self.config: PretrainedConfig = config
-        self.precisions = precisions
-        self.supported_bits = supported_bits
+
+        self.config = config
+
+        self.supported_bits = list(range(self.config.anyprec['seed_precision'],
+                                         self.config.anyprec['parent_precision'] + 1))
+        if precisions is None:
+            self.precisions = self.supported_bits
+        else:
+            assert len(precisions) == len(set(precisions)), "Precisions must be unique"
+            assert all(bit in self.supported_bits for bit in precisions), \
+                f"Supported bits {precisions} must be a subset of model supported bits {self.supported_bits}"
+            self.precisions = precisions
+
         self.precision = max(self.precisions)
-        self.analyzer = get_analyzer(model)
+
+        with init_empty_weights():
+            self.model = AutoModelForCausalLM.from_config(
+                config=config,
+                torch_dtype=torch_dtype,
+                trust_remote_code=trust_remote_code,
+                # attn_implementation="flash_attention_2",
+            )
+
+        self.analyzer = get_analyzer(self.model)
+
+        self.ap_linears = []
+        # Replace to AnyPrecisionLinear layers
+        self._load_quantized_modules()
+
+        self.tie_weights()
+
+        device_map = {key: 'cpu' for key in self.model.state_dict().keys()}
+
+        # loads the weights into modules and distributes
+        # across available devices automatically
+        load_checkpoint_and_dispatch(
+            self.model,
+            checkpoint=model_path,
+            device_map=device_map,
+            no_split_module_classes=[self.layer_type],
+            dtype=torch_dtype,
+        )
+
+        # Dispath to devices
+        if fuse_layers:
+            self.fuse_layers()
+
+        self.prune_precisions()
 
     def forward(self, *args, **kwargs):
         if 'precision' in kwargs:
@@ -92,84 +130,32 @@ class AnyPrecisionForCausalLM(nn.Module):
     def from_quantized(
             cls,
             quant_model_path,
-            max_new_tokens=None,
-            torch_dtype=torch.float16,
             trust_remote_code=True,
-            safetensors=True,
-            is_quantized=True,
             fuse_layers=False,
-            device_map="balanced",
-            offload_folder=None,
             precisions=None
     ):
-        # [STEP 1-2] Load weights path and configs
-        config = cls._load_config(
-            quant_model_path,
-            trust_remote_code,
-        )
-
-        # [STEP 3] Load model : TODO fix flash attention to option
-        with init_empty_weights():
-            model = AutoModelForCausalLM.from_config(
-                config=config,
-                torch_dtype=torch_dtype,
-                trust_remote_code=trust_remote_code,
-                # attn_implementation="flash_attention_2",
-            )
-
-        supported_bits = list(range(config.anyprec['seed_precision'],
-                                    config.anyprec['parent_precision'] + 1))
-        if precisions is None:
-            precisions = supported_bits
-        else:
-            assert len(precisions) == len(set(precisions)), "Precisions must be unique"
-            assert all(bit in supported_bits for bit in precisions), \
-                f"Supported bits {precisions} must be a subset of model supported bits {supported_bits}"
+        config = cls._load_config(quant_model_path, trust_remote_code)
 
         ap_model = cls(
-            model,
-            is_quantized=is_quantized,
-            config=config,
+            model_path=quant_model_path,
             precisions=precisions,
-            supported_bits=supported_bits,
+            config=config,
+            fuse_layers=fuse_layers,
+            trust_remote_code=trust_remote_code,
         )
-
-        # Replace to AnyPrecisionLinear layers
-        ap_model._load_quantized_modules()
-
-        ap_model.tie_weights()
-
-        device_map = {key: 'cpu' for key in ap_model.model.state_dict().keys()}
-
-        # loads the weights into modules and distributes
-        # across available devices automatically
-        load_checkpoint_and_dispatch(
-            ap_model.model,
-            checkpoint=quant_model_path,
-            device_map=device_map,
-            no_split_module_classes=[ap_model.layer_type],
-            offload_folder=offload_folder,
-            dtype=torch_dtype,
-        )
-
-        # Dispath to devices
-        if fuse_layers:
-            ap_model.fuse_layers()
-
-        ap_model.prune_precisions()
 
         return ap_model
 
     def _load_quantized_modules(self):
         # Get blocks of model
-        layers = self.get_model_layers()
+        layers = self.analyzer.get_layers()
 
         for layer in tqdm(layers, desc="Replacing layers..."):
             # Get every linear layer in a block
-            named_linears = get_named_linears(layer)
+            named_linears = self.analyzer.get_modules(layer)
 
             # Replace nn.Linear with AnyPrecisionLinear
-            for name, module in self.analyzer.get_modules():
+            for name, module in named_linears.items():
                 wqlinear = AnyPrecisionLinear(
                     module.in_features, module.out_features,
                     self.supported_bits,
@@ -178,29 +164,22 @@ class AnyPrecisionForCausalLM(nn.Module):
                     device=module.weight.device,
                     dtype=module.weight.dtype,
                 )
+                self.ap_linears.append(wqlinear)
                 set_op_by_name(layer, name, wqlinear)
 
             torch.cuda.empty_cache()
             gc.collect()
 
     def prune_precisions(self):
-        # Get blocks of model
-        layers = self.get_model_layers()
-        for layer in layers:
-            named_linears = get_AP_linears(layer)
-            for _, module in named_linears.items():
-                module.prune_precisions()
+        for ap_linear in self.ap_linears:
+            ap_linear.prune_precisions()
 
         torch.cuda.empty_cache()
         gc.collect()
 
     def set_precision(self, precision):
-        layers = self.get_model_layers()
-        for layer in layers:
-            # Get every linear layer in a block and refine bits
-            named_linears = get_AP_linears(layer)
-            for _, module in named_linears.items():
-                module.set_precision(precision)
+        for ap_linear in self.ap_linears:
+            ap_linear.set_precision(precision)
         self.precision = precision
 
     def tie_weights(self):
