@@ -4,8 +4,7 @@ import os
 import torch
 import logging
 from multiprocessing import Pool
-from .analyzer import get_analyzer
-from .utils import load_model, load_tokenizer
+from .utils import load_tokenizer
 
 _bytes_per_thread = 4
 

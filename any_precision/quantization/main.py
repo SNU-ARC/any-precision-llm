@@ -6,12 +6,11 @@ import os
 import os.path
 import shutil
 import torch
-import argparse
 import logging
 
 from .config import *
 from .utils import load_model, load_tokenizer
-from .analyzer import get_analyzer
+from ..analyzer import get_analyzer
 from .gradients import get_gradients
 from .upscale import upscale
 from .pack import pack

@@ -14,6 +14,7 @@ from accelerate.big_modeling import (
 )
 
 from .AnyPrecisionLinear import AnyPrecisionLinear
+from any_precision.analyzer.analyzer import get_analyzer
 
 
 def get_named_linears(module):
@@ -50,6 +51,7 @@ class AnyPrecisionForCausalLM(nn.Module):
         self.precisions = precisions
         self.supported_bits = supported_bits
         self.precision = max(self.precisions)
+        self.analyzer = get_analyzer(model)
 
     def forward(self, *args, **kwargs):
         if 'precision' in kwargs:
@@ -98,7 +100,6 @@ class AnyPrecisionForCausalLM(nn.Module):
             fuse_layers=False,
             device_map="balanced",
             offload_folder=None,
-            exclude_modules=None,
             precisions=None
     ):
         # [STEP 1-2] Load weights path and configs
@@ -133,10 +134,8 @@ class AnyPrecisionForCausalLM(nn.Module):
             supported_bits=supported_bits,
         )
 
-        # Prepare AnyPrecisionLinear layers, replace nn.Linear
-        ap_model._load_quantized_modules(
-            exclude_modules=exclude_modules,
-        )
+        # Replace to AnyPrecisionLinear layers
+        ap_model._load_quantized_modules()
 
         ap_model.tie_weights()
 
@@ -161,22 +160,16 @@ class AnyPrecisionForCausalLM(nn.Module):
 
         return ap_model
 
-    def _load_quantized_modules(self, exclude_modules=None):
+    def _load_quantized_modules(self):
         # Get blocks of model
         layers = self.get_model_layers()
-
-        if exclude_modules is None:
-            exclude_modules = ['lm_head']
 
         for layer in tqdm(layers, desc="Replacing layers..."):
             # Get every linear layer in a block
             named_linears = get_named_linears(layer)
 
             # Replace nn.Linear with AnyPrecisionLinear
-            for name, module in named_linears.items():
-                if name in exclude_modules:
-                    continue
-
+            for name, module in self.analyzer.get_modules():
                 wqlinear = AnyPrecisionLinear(
                     module.in_features, module.out_features,
                     self.supported_bits,

@@ -8,7 +8,8 @@ def load_model(model_str_or_model, dtype=torch.bfloat16):
         model = AutoModelForCausalLM.from_pretrained(
             model_str_or_model,
             trust_remote_code=True,
-            torch_dtype=dtype
+            torch_dtype=dtype,
+            device_map='auto'
         )
     else:
         assert isinstance(model_str_or_model, PreTrainedModel), "model must be a string or a PreTrainedModel"

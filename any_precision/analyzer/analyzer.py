@@ -4,16 +4,12 @@ import yaml
 import os
 import logging
 
-# The yaml files have the following fields:
-
-# architecture: which architecture the yaml file targets - NOT part of the quantization config
-
-# module_names: List of strings representing the names of the modules to be quantized
-# model_name: String representing the name of the model
-# layers_name: String representing the name of the layers
-
 
 def get_analyzer(model, yaml_path=None):
+    # Anyprecision quantized model
+    if hasattr(model.config, 'anyprec'):
+        return ModelAnalyzer.from_arch_config(model, model.config.anyprec['arch_config'])
+
     # Unspecified model quantization config
     if yaml_path is None:
         dirpath = os.path.dirname(os.path.realpath(__file__))

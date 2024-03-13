@@ -3,12 +3,9 @@ import os
 import logging
 from multiprocessing import Pool
 import torch
-import argparse
 import numpy as np
 from sklearn.cluster import KMeans
 from tqdm import tqdm
-from .utils import load_model
-from .analyzer import get_analyzer
 
 
 def _kmeans_fit(args_tuple):

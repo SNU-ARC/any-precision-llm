@@ -1,11 +1,10 @@
 import torch
 from tqdm import tqdm
 import os
-from .utils import load_model, load_tokenizer
-import argparse
+from .utils import load_tokenizer
 import logging
 from .config import *
-from .analyzer import get_analyzer
+from any_precision.analyzer.analyzer import get_analyzer
 from .datautils import get_tokens
 
 
