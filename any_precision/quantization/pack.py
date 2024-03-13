@@ -95,10 +95,9 @@ def _process_layer_data(args):
 
         bitarray = bitarray.reshape((parent_precision, N, K // 8))
         weighttensor = _permute_bitmaps_int32(bitarray)  # Ensure this function is defined
-        weighttensor = torch.from_numpy(weighttensor)
 
         param_name = f'{model_name}.{layers_name}.{layer_idx}.{name}'
-        layer_data[param_name + '.qweight'] = weighttensor.numpy()
+        layer_data[param_name + '.qweight'] = weighttensor
 
         for bit in range(seed_precision, parent_precision + 1):
             layer_lut_path = os.path.join(lut_path, f'lut_{bit}', f'l{layer_idx}.pt')
@@ -124,6 +123,13 @@ def pack(
 ):
     if cpu_count is None:
         cpu_count = os.cpu_count()
+
+    # Limit cpu_count to 8 as larger values use too much memory, without much speedup
+    _max_cpu_count = 8
+    if cpu_count > _max_cpu_count:
+        logging.warning(f"cpu_count will be limited to 8 to avoid excessive memory usage. "
+                        f"Original value: {cpu_count}")
+        cpu_count = _max_cpu_count
 
     tokenizer = load_tokenizer(tokenizer)
 
