@@ -46,9 +46,7 @@ def rand_choice_nb(arr, prob, size):
     :return: A random sample from the given array with a given probability.
     """
     cumsum = np.cumsum(prob)
-    selectors = np.empty(size)
-    for i in range(size):
-        selectors[i] = cumsum[-1] * np.random.random()
+    selectors = cumsum[-1] * np.random.random_sample(size)
 
     return arr[np.searchsorted(cumsum, selectors, side="right")]
 
