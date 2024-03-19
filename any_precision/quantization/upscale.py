@@ -42,7 +42,7 @@ parser.add_argument(
 )
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _upscale_group(orig_centroids, orig_labels, weights, sample_weight, seed_bit, parent_bit):
     luts_by_bit = [orig_centroids]
     labels = orig_labels
@@ -53,7 +53,7 @@ def _upscale_group(orig_centroids, orig_labels, weights, sample_weight, seed_bit
     return luts_by_bit, labels
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _increment_group(orig_centroids, orig_labels, weights, sample_weight, seed_bit):
     new_centroids = np.empty(2 ** (seed_bit + 1), dtype=np.float32)
     new_labels = np.empty_like(orig_labels)
@@ -91,7 +91,7 @@ def _increment_group(orig_centroids, orig_labels, weights, sample_weight, seed_b
     return new_centroids, new_labels
 
 
-@numba.njit
+@numba.njit(cache=True)
 def _faster_1d_two_cluster_kmeans(X, sample_weight):
     """An optimized kmeans for 1D data with 2 clusters.
     This function uses np.float32 instead of np.float16 for the centroids so that numba can compile it.
@@ -196,7 +196,7 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     return centroids, labels
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
     # The shape of LUTs are different for each module and bit.
     # The logical thing to do would be to use a list of lists(for each bit-width) of numpy arrays(for each module).
