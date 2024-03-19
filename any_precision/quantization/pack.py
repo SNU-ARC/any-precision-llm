@@ -5,10 +5,12 @@ import torch
 import logging
 from multiprocessing import Pool
 from .utils import load_tokenizer
+import numba
 
 _bytes_per_thread = 4
 
 
+@numba.njit(cache=True)
 def _permute_bitmaps(bitmaps):
     _, _, total_bytes = bitmaps.shape
     assert total_bytes % 4 == 0, "Number of bytes must be a multiple of 4"
@@ -47,6 +49,7 @@ def _permute_bitmaps(bitmaps):
     return permuted_bitmaps
 
 
+@numba.njit(cache=True)
 def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     """
     Calculate new byte indices for a given array of byte indices.
@@ -66,6 +69,7 @@ def _calculate_new_indices(byte_indices, threads_per_warp, offset=0):
     return new_byte_indices
 
 
+@numba.njit(cache=True)
 def _permute_bitmaps_int32(bitmaps):
     """Return a permuted version of the input bitmaps, reshaped to int32."""
     w_bits, N, total_bytes = bitmaps.shape
@@ -93,7 +97,7 @@ def _process_layer_data(args):
             mask >>= 1
 
         bitarray = bitarray.reshape((parent_precision, N, K // 8))
-        weighttensor = _permute_bitmaps_int32(bitarray)  # Ensure this function is defined
+        weighttensor = _permute_bitmaps_int32(bitarray)
 
         param_name = f'{model_name}.{layers_name}.{layer_idx}.{name}'
         layer_data[param_name + '.qweight'] = weighttensor
