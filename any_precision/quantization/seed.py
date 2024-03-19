@@ -1,6 +1,5 @@
 import os
 import logging
-from multiprocessing import Pool
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -199,8 +198,6 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
 
     logging.info(f"Quantizing layers {list(range(len(model_weights)))}")
 
-    pool = Pool(cpu_count)
-
     skipped_layers = []
 
     for l in tqdm(range(len(model_weights)), desc="Quantizing layers..."):
@@ -236,5 +233,3 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
         logging.info(f"The following layers have been skipped: {skipped_layers}")
         logging.info(f"To reprocess these layers, "
                      f"delete the corresponding files in {lut_folder} and {weight_folder}")
-
-    pool.close()
