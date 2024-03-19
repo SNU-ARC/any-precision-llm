@@ -93,9 +93,12 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
 
                 input_ids = input_tokens.input_ids[:, begin_loc:begin_loc + chunk_size]
 
-                # add BOS token, necessary for Gemma-7B, harmless for other models
+                # add BOS token for Gemma-7B
                 # https://github.com/huggingface/transformers/issues/29250
-                input_ids[:, 0] = tokenizer.bos_token_id
+                if 'gemma' in model.config.architectures[0].lower():
+                    # Mostly harmless to other models, but a slight drop in ppl is observed
+                    # Hence, we only add the BOS token for Gemma models for now
+                    input_ids[:, 0] = tokenizer.bos_token_id
 
                 with torch.no_grad():
                     outputs = model(input_ids, labels=input_ids)
