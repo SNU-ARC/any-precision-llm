@@ -29,17 +29,31 @@ def any_precision_quantize(model,
                            yaml_path=None, cache_dir=DEFAULT_CACHE_DIR,
                            dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
                            cpu_count=os.cpu_count(),
-                           recalculate_gradients=False,
-                           recalculate_seed=False,
+                           overwrite_gradients=False,
+                           overwrite_seed=False,
+                           overwrite_upscale=False,
+                           overwrite_pack=False,
                            ):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
 
-    if recalculate_gradients:
-        if not recalculate_seed:
+    if overwrite_gradients:
+        if not overwrite_seed:
             logging.warning("Seed model needs to be recalculated if gradients are recalculated. "
-                            "Setting recalculate_seed to True.")
-            recalculate_seed = True
+                            "Setting overwrite_seed to True.")
+            overwrite_seed = True
+
+    if overwrite_seed:
+        if not overwrite_upscale:
+            logging.warning("Parent model needs to be recalculated if seed model is recalculated. "
+                            "Setting overwrite_upscale to True.")
+            overwrite_upscale = True
+
+    if overwrite_upscale:
+        if not overwrite_pack:
+            logging.warning("Packed model needs to be recalculated if parent model is recalculated. "
+                            "Setting overwrite_pack to True.")
+            overwrite_pack = True
 
     if mode == 'gradients':
         logging.info("Running: [Gradients]")
@@ -70,7 +84,7 @@ def any_precision_quantize(model,
     gradients_cache_path = f"{cache_dir}/gradients/({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt"
 
     # Calculate or load gradients
-    if not recalculate_gradients and os.path.exists(gradients_cache_path):
+    if not overwrite_gradients and os.path.exists(gradients_cache_path):
         model_gradients = torch.load(gradients_cache_path)
         logging.info(f"Loaded cached gradients from {gradients_cache_path}")
     else:
@@ -98,10 +112,9 @@ def any_precision_quantize(model,
     # Calculate or load seed
     logging.info(f"Beginning {seed_precision}-bit seed model generation...")
     # Note that this saves the seed model to the cache path and must be loaded for the upscale step
-    if recalculate_seed and os.path.exists(seed_cache_path):
+    if overwrite_seed and os.path.exists(seed_cache_path):
         # if the user wants to recalculate the seed, delete the cached seed
         logging.info(f"Detected cached seed at {seed_cache_path}. Will delete and recalculate.")
-        input(f"To proceed with the deletion of {seed_cache_path}, press Enter. Else, press Ctrl+C to abort.")
         shutil.rmtree(seed_cache_path)
 
     # this skips over existing layers in the cache, and doesn't overwrite them
@@ -124,6 +137,14 @@ def any_precision_quantize(model,
     parent_cache_path = (f"{cache_dir}/parent/({model_name})-w{parent_precision}_orig{seed_precision}"
                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
+    # Calculate or load parent
+    logging.info(f"Beginning {parent_precision}-bit parent model generation...")
+    # Note that this saves the parent model to the cache path and must be loaded for the pack step
+    if overwrite_upscale and os.path.exists(parent_cache_path):
+        # if the user wants to recalculate the parent, delete the cached parent
+        logging.info(f"Detected cached parent at {parent_cache_path}. Will delete and recalculate.")
+        shutil.rmtree(parent_cache_path)
+
     upscale(
         analyzer=analyzer,
         seed_precision=seed_precision,
@@ -135,6 +156,7 @@ def any_precision_quantize(model,
     )
 
     del model_gradients  # free up memory
+    analyzer.drop_original_weights()  # drop the original weights to save memory
 
     logging.info("Upscale complete.")
 
@@ -146,10 +168,14 @@ def any_precision_quantize(model,
 
     # check for non-empty directory
     if os.path.exists(model_output_path) and os.path.isdir(model_output_path) and os.listdir(model_output_path):
-        logging.info(f"Model output path {model_output_path} already exists and is not empty.")
-        input(f"To proceed and overwrite {model_output_path}, press Enter. Else, press Ctrl+C to abort.")
-
-    analyzer.drop_original_weights()  # drop the original weights to save memory
+        if overwrite_pack:
+            logging.info(f"Model output path {model_output_path} already exists and is not empty. Will delete and "
+                         f"re-pack.")
+            shutil.rmtree(model_output_path)
+        else:
+            # if the user doesn't want to overwrite the pack, but the directory is not empty, skip packing
+            logging.info(f"Model output path {model_output_path} already exists and is not empty. Will skip packing.")
+            return
 
     pack(
         analyzer=analyzer,

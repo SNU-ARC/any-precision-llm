@@ -12,10 +12,15 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, help="The dataset to use")
     parser.add_argument("--seq_len", type=int, help="The sequence length to use")
     parser.add_argument("--num_examples", type=int, help="The number of examples to use")
-    parser.add_argument('--recalculate_gradients', action="store_true",
-                        help="Whether to recalculate the gradients")
-    parser.add_argument("--recalculate_seed", action="store_true",
-                        help="Whether to recalculate the seed")
+    parser.add_argument("--cpu_count", type=int, help="The number of CPUs to use for parallelization")
+    parser.add_argument('--overwrite_gradients', action="store_true",
+                        help="Whether to overwrite the gradients stored to disk")
+    parser.add_argument("--overwrite_seed", action="store_true",
+                        help="Whether to overwrite the seed model stored to disk")
+    parser.add_argument("--overwrite_upscale", action="store_true",
+                        help="Whether to overwrite the parent model stored to disk")
+    parser.add_argument("--overwrite_pack", action="store_true",
+                        help="Whether to overwrite the packed model stored to disk")
 
     args = parser.parse_args()
 
