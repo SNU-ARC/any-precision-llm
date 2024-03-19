@@ -372,10 +372,10 @@ def get_param_shapes(model):
 
 
 def get_tokenizer_type(model_path):
-    if 'llama-7b' in model_path.lower():
-        tokenizer_type = 'llama'
-    elif 'llama-2-7b' in model_path.lower():
+    if 'llama-2' in model_path.lower():
         tokenizer_type = 'llama-2'
+    elif 'llama' in model_path.lower():
+        tokenizer_type = 'llama'
     elif 'opt' in model_path.lower():
         tokenizer_type = 'opt'
     elif 'mistral' in model_path.lower():
