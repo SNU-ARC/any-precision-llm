@@ -97,6 +97,7 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     sorted_indices = np.argsort(X)
     sorted_X = X[sorted_indices]
 
+    # A segment tree is used as opposed to a prefix sum array to avoid numerical issues in floating point subtraction
     weights_segtree = build_segment_tree(sample_weight[sorted_indices])
     weighted_X_segtree = build_segment_tree((X * sample_weight)[sorted_indices])
 
@@ -124,16 +125,18 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
             cluster_start = cluster_borders[i]
             cluster_end = cluster_borders[i + 1]
 
+            if cluster_end < cluster_start:
+                raise ValueError("Cluster end is less than cluster start")
+
+            if cluster_start == cluster_end:
+                continue
+
             cluster_weighted_X_sum = query_segment_tree(weighted_X_segtree, cluster_start, cluster_end - 1)
             cluster_weight_sum = query_segment_tree(weights_segtree, cluster_start, cluster_end - 1)
 
             if cluster_weight_sum == 0:
                 # if the sum of the weights is zero, we set the centroid to the mean of the cluster
-                if cluster_start < cluster_end:
-                    centroids[i] = sorted_X[cluster_start:cluster_end].mean()
-                # if the cluster is empty, leave the centroid unchanged
-                else:
-                    pass
+                centroids[i] = sorted_X[cluster_start:cluster_end].mean()
             else:
                 centroids[i] = cluster_weighted_X_sum / cluster_weight_sum
 
@@ -200,10 +203,17 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
 
     pool = Pool(cpu_count)
 
+    skipped_layers = []
+
     for l in tqdm(range(len(model_weights)), desc="Quantizing layers..."):
         if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
-            logging.info(f"Skipping layer {l}, file already exists")
+            skipped_layers.append(l)
             continue
+        if skipped_layers:
+            logging.info(f"The following layers have been skipped: {skipped_layers}")
+            logging.info(f"To reprocess these layers, "
+                         f"delete the corresponding files in {lut_folder} and {weight_folder}")
+            skipped_layers = []
 
         gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
         model_layer = [model_weights[l][name].float().numpy() for name in analyzer.module_names]
@@ -223,5 +233,10 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
         # save parts
         torch.save(lut_per_layer, f"{lut_folder}/l{l}.pt")
         torch.save(weight_per_layer, f"{weight_folder}/l{l}.pt")
+
+    if skipped_layers:
+        logging.info(f"The following layers have been skipped: {skipped_layers}")
+        logging.info(f"To reprocess these layers, "
+                     f"delete the corresponding files in {lut_folder} and {weight_folder}")
 
     pool.close()
