@@ -8,6 +8,7 @@ from any_precision.evaluate import eval
 parser = argparse.ArgumentParser()
 parser.add_argument('--output_file', type=str, default='results.json')
 parser.add_argument('--redo', action='store_true')
+parser.add_argument('--cache_dir', type=str, default='./cache')
 args = parser.parse_args()
 
 model_paths = []
@@ -15,7 +16,7 @@ model_paths = []
 
 # Uncomment the line below to run baseline models
 # model_paths += utils.get_base_models(include_prequant=False, relevant_models_only=True)
-model_paths += utils.get_subdirs('./cache/packed')
+model_paths += utils.get_subdirs(f'{args.cache_dir}/packed')
 
 # testcases for perplexity calculation
 datasets = ['wikitext2', 'c4_new', 'ptb_new_sliced']
