@@ -141,10 +141,10 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     # First we sort the data
     sorted_indices = np.argsort(X)
 
-    weighted_weights = (X * sample_weight)[sorted_indices]
-    X_prefix_sum = np.cumsum(weighted_weights)
-    sample_weight_prefix_sum = np.cumsum(sample_weight[sorted_indices])
-    sample_weight_suffix_sum = np.cumsum(sample_weight[sorted_indices[::-1]])[::-1]
+    weighted_X = (X * sample_weight)[sorted_indices]
+    # Use fp64 in prefix sum to avoid precision loss in subtraction
+    weighted_X_prefix_sum = np.cumsum(weighted_X.astype(np.float64))
+    sample_weight_prefix_sum = np.cumsum(sample_weight[sorted_indices].astype(np.float64))
 
     # We will do a search for the division point,
     # where we search for the optimum number of elements in the first cluster
@@ -157,16 +157,18 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     while floor + 1 < ceiling:
         left_cluster_size = (floor + ceiling) // 2
         # If the left cluster has no weight, we need to move the floor up
-        if sample_weight_prefix_sum[left_cluster_size - 1] == 0:
+        left_weight_sum = sample_weight_prefix_sum[left_cluster_size - 1]
+        if left_weight_sum == 0:
             floor = left_cluster_size
             continue
+        right_weight_sum = sample_weight_prefix_sum[-1] - left_weight_sum
         # If the right cluster has no weight, we need to move the ceiling down
-        if sample_weight_suffix_sum[left_cluster_size] == 0:
+        if right_weight_sum == 0:
             ceiling = left_cluster_size
             continue
-        left_center = X_prefix_sum[left_cluster_size - 1] / sample_weight_prefix_sum[left_cluster_size - 1]
-        right_center = (X_prefix_sum[-1] - X_prefix_sum[left_cluster_size - 1]) / \
-                       (sample_weight_suffix_sum[left_cluster_size])
+
+        left_center = weighted_X_prefix_sum[left_cluster_size - 1] / left_weight_sum
+        right_center = (weighted_X_prefix_sum[-1] - weighted_X_prefix_sum[left_cluster_size - 1]) / right_weight_sum
 
         new_division_point = (left_center + right_center) / 2
         if X[sorted_indices[left_cluster_size - 1]] <= new_division_point:
@@ -180,11 +182,11 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     # initialize variables in case the loop above does not run through
     if left_center is None:
         left_cluster_size = (floor + ceiling) // 2
-        left_center = X_prefix_sum[left_cluster_size - 1] / sample_weight_prefix_sum[left_cluster_size - 1]
+        left_center = weighted_X_prefix_sum[left_cluster_size - 1] / sample_weight_prefix_sum[left_cluster_size - 1]
     if right_center is None:
         left_cluster_size = (floor + ceiling) // 2
-        right_center = (X_prefix_sum[-1] - X_prefix_sum[left_cluster_size - 1]) / \
-                       (sample_weight_suffix_sum[left_cluster_size])
+        right_center = (weighted_X_prefix_sum[-1] - weighted_X_prefix_sum[left_cluster_size - 1]) / \
+                       (sample_weight_prefix_sum[-1] - sample_weight_prefix_sum[left_cluster_size - 1])
 
     # avoid using lists to allow numba.njit
     centroids[0] = left_center
