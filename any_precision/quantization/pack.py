@@ -150,7 +150,7 @@ def pack(
                  layer_idx in range(num_layers)]
 
     with Pool(cpu_count) as pool:
-        for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers):
+        for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers, desc="Packing"):
             for key, value in layer_data.items():
                 state_dict[key] = torch.from_numpy(value)  # Update with modified weights
 
