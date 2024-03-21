@@ -336,7 +336,7 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
         io_workers = 0  # No separate IO workers needed for non-pipelined IO
         numba.set_num_threads(cpu_count)
 
-    assert seed_precision < parent_precision, "Parent precision should be higher than seed precision"
+    assert seed_precision <= parent_precision, "Parent precision should be equal or higher than seed precision"
     print(f"Upscaling from {seed_precision} to {parent_precision}")
 
     print("Loading original model weights...")
