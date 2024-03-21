@@ -7,38 +7,13 @@ import numba
 
 
 @numba.njit(cache=True)
-def build_segment_tree(arr):
-    n = len(arr)
-    height = int(np.ceil(np.log2(n)))
-    offset = 2 ** height
-    segment_tree = np.zeros(2 ** (height + 1), dtype=np.float32)
-    segment_tree[offset:offset + n] = arr
-    for i in range(offset - 1, 0, -1):
-        segment_tree[i] = segment_tree[2 * i] + segment_tree[2 * i + 1]
-    return segment_tree
+def query_prefix_sum(arr, start, stop):
+    return arr[stop - 1] - arr[start - 1] if start > 0 else arr[stop - 1]
 
 
 @numba.njit(cache=True)
-def query_segment_tree(segment_tree, start, end):
-    offset = len(segment_tree) // 2
-    start += offset
-    end += offset
-    result = 0
-    while start <= end:
-        if start % 2 == 1:
-            result += segment_tree[start]
-            start += 1
-        if end % 2 == 0:
-            result += segment_tree[end]
-            end -= 1
-        start = start // 2
-        end = end // 2
-    return result
-
-
-@numba.njit(cache=True)
-def rand_choice_segtree(arr, prob_segtree, size):
-    total_prob = query_segment_tree(prob_segtree, 0, len(arr) - 1)
+def rand_choice_prefix_sum(arr, prob_prefix_sum, size):
+    total_prob = prob_prefix_sum[-1]
     selectors = np.random.random_sample(size) * total_prob
     results = np.empty(size, dtype=arr.dtype)
 
@@ -49,7 +24,7 @@ def rand_choice_segtree(arr, prob_segtree, size):
         right = len(arr) - 1
         while left < right:
             mid = (left + right) // 2
-            if query_segment_tree(prob_segtree, 0, mid) < selector:
+            if query_prefix_sum(prob_prefix_sum, 0, mid + 1) < selector:
                 left = mid + 1
             else:
                 right = mid
@@ -59,7 +34,8 @@ def rand_choice_segtree(arr, prob_segtree, size):
 
 
 @numba.njit(cache=True)
-def calculate_inertia(X, centroids, weights_segtree, weighted_X_segtree, weighted_X_squared_segtree, count=None):
+def calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum,
+                      count=None):
     """ Time complexity: O(n_clusters * log(n_samples))"""
     if count is None:
         count = len(X)
@@ -90,9 +66,9 @@ def calculate_inertia(X, centroids, weights_segtree, weighted_X_segtree, weighte
         if start == end:
             continue
 
-        cluster_weighted_X_squared_sum = query_segment_tree(weighted_X_squared_segtree, start, end - 1)
-        cluster_weighted_X_sum = query_segment_tree(weighted_X_segtree, start, end - 1)
-        cluster_weight_sum = query_segment_tree(weights_segtree, start, end - 1)
+        cluster_weighted_X_squared_sum = query_prefix_sum(weighted_X_squared_prefix_sum, start, end)
+        cluster_weighted_X_sum = query_prefix_sum(weighted_X_prefix_sum, start, end)
+        cluster_weight_sum = query_prefix_sum(weights_prefix_sum, start, end)
 
         inertia += cluster_weighted_X_squared_sum - 2 * centroids[i] * cluster_weighted_X_sum + \
                    centroids[i] ** 2 * cluster_weight_sum
@@ -101,8 +77,9 @@ def calculate_inertia(X, centroids, weights_segtree, weighted_X_segtree, weighte
 
 
 @numba.njit(cache=True)
-def rand_choice_centroids(X, centroids, weights_segtree, weighted_X_segtree, weighted_X_squared_segtree, size):
-    total_inertia = calculate_inertia(X, centroids, weights_segtree, weighted_X_segtree, weighted_X_squared_segtree)
+def rand_choice_centroids(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum, size):
+    total_inertia = calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum,
+                                      weighted_X_squared_prefix_sum)
     selectors = np.random.random_sample(size) * total_inertia
     results = np.empty(size, dtype=centroids.dtype)
 
@@ -112,7 +89,8 @@ def rand_choice_centroids(X, centroids, weights_segtree, weighted_X_segtree, wei
         right = len(X)
         while left < right:
             mid = (left + right) // 2
-            inertia = calculate_inertia(X, centroids, weights_segtree, weighted_X_segtree, weighted_X_squared_segtree,
+            inertia = calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum,
+                                        weighted_X_squared_prefix_sum,
                                         count=mid)
             if inertia < selector:
                 left = mid + 1
@@ -124,26 +102,26 @@ def rand_choice_centroids(X, centroids, weights_segtree, weighted_X_segtree, wei
 
 
 @numba.njit(cache=True)
-def kmeans_plusplus(X, n_clusters, weights_segtree, weighted_X_segtree, weighted_X_squared_segtree):
+def kmeans_plusplus(X, n_clusters, weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum):
     n_local_trials = 2 + int(np.log(n_clusters))
 
-    centroids = np.empty(n_clusters, dtype=np.float32)
+    centroids = np.empty(n_clusters, dtype=np.float64)
 
     # First centroid is chosen randomly according to sample_weight
-    centroids[0] = rand_choice_segtree(X, weights_segtree, 1)[0]
+    centroids[0] = rand_choice_prefix_sum(X, weights_prefix_sum, 1)[0]
 
     for c_id in range(1, n_clusters):
         # Choose the next centroid randomly according to the weighted distances
         # Sample n_local_trials candidates and choose the best one
-        centroid_candidates = rand_choice_centroids(X, centroids[:c_id], weights_segtree, weighted_X_segtree,
-                                                    weighted_X_squared_segtree, n_local_trials)
+        centroid_candidates = rand_choice_centroids(X, centroids[:c_id], weights_prefix_sum, weighted_X_prefix_sum,
+                                                    weighted_X_squared_prefix_sum, n_local_trials)
 
         best_inertia = np.inf
         best_centroid = None
         for i in range(len(centroid_candidates)):
             centroids[c_id] = centroid_candidates[i]
-            inertia = calculate_inertia(X, centroids[:c_id + 1], weights_segtree, weighted_X_segtree,
-                                        weighted_X_squared_segtree)
+            inertia = calculate_inertia(X, centroids[:c_id + 1], weights_prefix_sum, weighted_X_prefix_sum,
+                                        weighted_X_squared_prefix_sum)
             if inertia < best_inertia:
                 best_inertia = inertia
                 best_centroid = centroid_candidates[i]
@@ -160,10 +138,10 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     sorted_weighted_X = sorted_X * sorted_weights
     sorted_weighted_X_squared = sorted_weighted_X * sorted_X
 
-    # A segment tree is used as opposed to a prefix sum array to avoid numerical issues in floating point subtraction
-    weights_segtree = build_segment_tree(sorted_weights)
-    weighted_X_segtree = build_segment_tree(sorted_weighted_X)
-    weighted_X_squared_segtree = build_segment_tree(sorted_weighted_X_squared)
+    # Using float32 or less with prefix sums cause significant loss of precision, so we use float64
+    sorted_weights_prefix_sum = np.cumsum(sorted_weights.astype(np.float64))
+    sorted_weighted_X_prefix_sum = np.cumsum(sorted_weighted_X.astype(np.float64))
+    sorted_weighted_X_squared_prefix_sum = np.cumsum(sorted_weighted_X_squared.astype(np.float64))
 
     cluster_borders = np.empty(n_clusters + 1, dtype=np.int32)
     cluster_borders[0] = 0
@@ -174,7 +152,8 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     new_cluster_borders[-1] = len(X)
 
     centroids = kmeans_plusplus(sorted_X, n_clusters,
-                                weights_segtree, weighted_X_segtree, weighted_X_squared_segtree)
+                                sorted_weights_prefix_sum, sorted_weighted_X_prefix_sum,
+                                sorted_weighted_X_squared_prefix_sum)
     centroids.sort()
 
     for _ in range(max_iter):
@@ -196,8 +175,8 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
             if cluster_start == cluster_end:
                 continue
 
-            cluster_weighted_X_sum = query_segment_tree(weighted_X_segtree, cluster_start, cluster_end - 1)
-            cluster_weight_sum = query_segment_tree(weights_segtree, cluster_start, cluster_end - 1)
+            cluster_weighted_X_sum = query_prefix_sum(sorted_weighted_X_prefix_sum, cluster_start, cluster_end)
+            cluster_weight_sum = query_prefix_sum(sorted_weights_prefix_sum, cluster_start, cluster_end)
 
             if cluster_weight_sum == 0:
                 # if the sum of the weights is zero, we set the centroid to the mean of the cluster
