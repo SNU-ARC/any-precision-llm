@@ -51,7 +51,7 @@ def rand_choice_nb(arr, prob, size):
 
 
 @numba.njit(cache=True)
-def kmeans_plusplus(X, sample_weight, n_clusters):
+def kmeans_plusplus(X, n_clusters, sample_weight):
     n_local_trials = 2 + int(np.log(n_clusters))
 
     centroids = np.empty(n_clusters, dtype=np.float32)
@@ -93,10 +93,11 @@ def kmeans_plusplus(X, sample_weight, n_clusters):
 def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     sorted_indices = np.argsort(X)
     sorted_X = X[sorted_indices]
+    sorted_weights = sample_weight[sorted_indices]
 
     # A segment tree is used as opposed to a prefix sum array to avoid numerical issues in floating point subtraction
-    weights_segtree = build_segment_tree(sample_weight[sorted_indices])
-    weighted_X_segtree = build_segment_tree((X * sample_weight)[sorted_indices])
+    weights_segtree = build_segment_tree(sorted_weights)
+    weighted_X_segtree = build_segment_tree(sorted_X * sorted_weights)
 
     cluster_borders = np.empty(n_clusters + 1, dtype=np.int32)
     cluster_borders[0] = 0
@@ -106,7 +107,7 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     new_cluster_borders[0] = 0
     new_cluster_borders[-1] = len(X)
 
-    centroids = kmeans_plusplus(sorted_X, sample_weight, n_clusters)
+    centroids = kmeans_plusplus(sorted_X, n_clusters, sorted_weights)
     centroids.sort()
 
     for _ in range(max_iter):
