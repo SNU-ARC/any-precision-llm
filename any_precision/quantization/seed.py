@@ -12,25 +12,10 @@ def query_prefix_sum(arr, start, stop):
 
 
 @numba.njit(cache=True)
-def rand_choice_prefix_sum(arr, prob_prefix_sum, size):
+def rand_choice_prefix_sum(arr, prob_prefix_sum):
     total_prob = prob_prefix_sum[-1]
-    selectors = np.random.random_sample(size) * total_prob
-    results = np.empty(size, dtype=arr.dtype)
-
-    # Binary search the segment tree to find the index of the selector
-    for i in range(size):
-        selector = selectors[i]
-        left = 0
-        right = len(arr) - 1
-        while left < right:
-            mid = (left + right) // 2
-            if query_prefix_sum(prob_prefix_sum, 0, mid + 1) < selector:
-                left = mid + 1
-            else:
-                right = mid
-        results[i] = arr[left]
-
-    return results
+    selector = np.random.random_sample() * total_prob
+    return arr[np.searchsorted(prob_prefix_sum, selector, side='right')]
 
 
 @numba.njit(cache=True)
@@ -108,7 +93,7 @@ def kmeans_plusplus(X, n_clusters, weights_prefix_sum, weighted_X_prefix_sum, we
     centroids = np.empty(n_clusters, dtype=np.float64)
 
     # First centroid is chosen randomly according to sample_weight
-    centroids[0] = rand_choice_prefix_sum(X, weights_prefix_sum, 1)[0]
+    centroids[0] = rand_choice_prefix_sum(X, weights_prefix_sum)
 
     for c_id in range(1, n_clusters):
         # Choose the next centroid randomly according to the weighted distances
