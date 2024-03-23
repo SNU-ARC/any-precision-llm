@@ -15,7 +15,7 @@ def query_prefix_sum(arr, start, stop):
 def rand_choice_prefix_sum(arr, prob_prefix_sum):
     total_prob = prob_prefix_sum[-1]
     selector = np.random.random_sample() * total_prob
-    return arr[np.searchsorted(prob_prefix_sum, selector, side='right')]
+    return arr[np.searchsorted(prob_prefix_sum, selector)]
 
 
 @numba.njit(cache=True)
