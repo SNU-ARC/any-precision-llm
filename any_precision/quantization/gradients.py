@@ -67,12 +67,15 @@ def get_gradients(
         loss = outputs.loss
         loss.backward()
 
+    # Move model back to cpu
+    model.cpu()
+
     # Harvest the gradients
     gradients = []
     for layer in layers:
         gradients_per_layer = {}
         for module_name, module in analyzer.get_modules(layer).items():
-            gradients_per_layer[module_name] = module.weight.grad.cpu()
+            gradients_per_layer[module_name] = module.weight.grad
         gradients.append(gradients_per_layer)
 
     # Save the gradients to file
