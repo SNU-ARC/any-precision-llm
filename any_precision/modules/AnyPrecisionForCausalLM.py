@@ -162,7 +162,6 @@ class AnyPrecisionForCausalLM(nn.Module):
                     bias=module.bias is not None,
                     precisions=self.precisions,
                     device=module.weight.device,
-                    dtype=module.weight.dtype,
                 )
                 self.ap_linears.append(wqlinear)
                 set_op_by_name(layer, name, wqlinear)

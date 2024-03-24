@@ -34,13 +34,13 @@ class AnyPrecisionLinear(nn.Module):
         for bit in supported_bits:
             self.register_buffer(
                 f'lut{bit}',
-                torch.empty((out_features, 2 ** bit), dtype=torch.float16, device=device)
+                torch.empty((out_features, 2 ** bit), dtype=dtype, device=device)
             )
 
         if bias:
             self.register_buffer(
                 "bias",
-                torch.empty((out_features,), dtype=torch.float16, device=device)
+                torch.empty((out_features,), dtype=dtype, device=device)
             )
         else:
             self.bias = None
