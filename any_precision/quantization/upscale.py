@@ -138,13 +138,17 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     # KMeans with 2 clusters on 1D data is equivalent to finding a division point.
     # The division point can be found by doing a binary search on the prefix sum.
 
+
     # First we sort the data
     sorted_indices = np.argsort(X)
 
-    weighted_X = (X * sample_weight)[sorted_indices]
-    # Use fp64 in prefix sum to avoid precision loss in subtraction
-    weighted_X_prefix_sum = np.cumsum(weighted_X.astype(np.float64))
-    sample_weight_prefix_sum = np.cumsum(sample_weight[sorted_indices].astype(np.float64))
+    # Use fp64 to avoid precision loss in prefix sum subtraction
+    sorted_X = X[sorted_indices].astype(np.float64)
+    sorted_weights = sample_weight[sorted_indices].astype(np.float64)
+
+    weighted_X = sorted_X * sorted_weights
+    weighted_X_prefix_sum = np.cumsum(weighted_X)
+    sample_weight_prefix_sum = np.cumsum(sorted_weights)
 
     # We will do a search for the division point,
     # where we search for the optimum number of elements in the first cluster

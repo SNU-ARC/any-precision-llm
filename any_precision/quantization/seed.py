@@ -118,15 +118,16 @@ def kmeans_plusplus(X, n_clusters, weights_prefix_sum, weighted_X_prefix_sum, we
 @numba.njit(cache=True)
 def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
     sorted_indices = np.argsort(X)
-    sorted_X = X[sorted_indices]
-    sorted_weights = sample_weight[sorted_indices]
+
+    # Use fp64 to avoid precision loss in prefix sum subtraction
+    sorted_X = X[sorted_indices].astype(np.float64)
+    sorted_weights = sample_weight[sorted_indices].astype(np.float64)
     sorted_weighted_X = sorted_X * sorted_weights
     sorted_weighted_X_squared = sorted_weighted_X * sorted_X
 
-    # Using float32 or less with prefix sums cause significant loss of precision, so we use float64
-    sorted_weights_prefix_sum = np.cumsum(sorted_weights.astype(np.float64))
-    sorted_weighted_X_prefix_sum = np.cumsum(sorted_weighted_X.astype(np.float64))
-    sorted_weighted_X_squared_prefix_sum = np.cumsum(sorted_weighted_X_squared.astype(np.float64))
+    sorted_weights_prefix_sum = np.cumsum(sorted_weights)
+    sorted_weighted_X_prefix_sum = np.cumsum(sorted_weighted_X)
+    sorted_weighted_X_squared_prefix_sum = np.cumsum(sorted_weighted_X_squared)
 
     cluster_borders = np.empty(n_clusters + 1, dtype=np.int32)
     cluster_borders[0] = 0
