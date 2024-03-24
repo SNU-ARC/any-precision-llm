@@ -27,7 +27,7 @@ def get_gradients(
         num_examples=DEFAULT_NUM_EXAMPLES,
         save_path=None
 ):
-    if os.path.isfile(save_path):
+    if save_path is not None and os.path.isfile(save_path):
         logging.info(f"Gradients already calculated and saved at {save_path}.")
         logging.info(f"Loading gradients...")
         return numpy_convert(torch.load(save_path))
