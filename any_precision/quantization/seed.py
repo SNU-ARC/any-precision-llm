@@ -226,9 +226,6 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
 
     model_weights = analyzer.get_model_weights()
 
-    if isinstance(gradients, str):
-        gradients = torch.load(gradients)
-
     logging.info(f"Quantizing layers {list(range(len(model_weights)))}")
 
     skipped_layers = []
@@ -243,8 +240,8 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None):
                          f"delete the corresponding files in {lut_folder} and {weight_folder}")
             skipped_layers = []
 
-        gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
-        model_layer = [model_weights[l][name].float().numpy() for name in analyzer.module_names]
+        gradient_layer = [gradients[l][name] for name in analyzer.module_names]
+        model_layer = [model_weights[l][name] for name in analyzer.module_names]
 
         layer_lut_by_module, layer_weight_by_module = seed_layer(
             gradient_layer,

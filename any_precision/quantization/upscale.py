@@ -138,7 +138,6 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     # KMeans with 2 clusters on 1D data is equivalent to finding a division point.
     # The division point can be found by doing a binary search on the prefix sum.
 
-
     # First we sort the data
     sorted_indices = np.argsort(X)
 
@@ -253,13 +252,6 @@ def _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, see
                 parent_weights_by_modules[m_idx][r_idx][g_idx] = parent_weights_per_group
 
     return lut_by_modules_by_bit, parent_weights_by_modules
-
-
-def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
-    # Convert the torch tensors to numpy arrays and to float32 so that numba can use them
-    model_layer = [x.float().numpy() for x in model_layer]
-    gradient_layer = [x.float().numpy() for x in gradient_layer]
-    return _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit)
 
 
 def __load_values(seed_lut_path, seed_weights_path, module_names, l):
@@ -401,11 +393,11 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
                 if l != ran[-1]:
                     future_load = io_executor.submit(load_values, l + 1)
 
-                luts_by_modules_by_bit, parent_weights = _upscale_layer(seed_lut_layer, seed_qweight_layer,
-                                                                        model_weights_by_layer[l],
-                                                                        gradients_by_layer[l],
-                                                                        seed_precision,
-                                                                        parent_precision)
+                luts_by_modules_by_bit, parent_weights = _upscale_layer_njit(seed_lut_layer, seed_qweight_layer,
+                                                                             model_weights_by_layer[l],
+                                                                             gradients_by_layer[l],
+                                                                             seed_precision,
+                                                                             parent_precision)
 
                 io_executor.submit(save_results, luts_by_modules_by_bit, parent_weights, l)
             print("Waiting for IO to finish...")
@@ -413,10 +405,10 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
         for l in tqdm(ran, desc="Quantizing layers"):
             seed_lut_layer, seed_qweight_layer = load_values(l)
 
-            luts_by_modules_by_bit, parent_weights = _upscale_layer(seed_lut_layer, seed_qweight_layer,
-                                                                    model_weights_by_layer[l],
-                                                                    gradients_by_layer[l],
-                                                                    seed_precision,
-                                                                    parent_precision)
+            luts_by_modules_by_bit, parent_weights = _upscale_layer_njit(seed_lut_layer, seed_qweight_layer,
+                                                                         model_weights_by_layer[l],
+                                                                         gradients_by_layer[l],
+                                                                         seed_precision,
+                                                                         parent_precision)
 
             save_results(luts_by_modules_by_bit, parent_weights, l)

@@ -83,22 +83,23 @@ def any_precision_quantize(model,
 
     gradients_cache_path = f"{cache_dir}/gradients/({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt"
 
+    logging.info("Beginning gradient calculation...")
     # Calculate or load gradients
-    if not overwrite_gradients and os.path.exists(gradients_cache_path):
-        model_gradients = torch.load(gradients_cache_path)
-        logging.info(f"Loaded cached gradients from {gradients_cache_path}")
-    else:
-        logging.info("Beginning gradient calculation...")
-        # this will overwrite the gradients cache if it already exists
-        model_gradients = get_gradients(
-            analyzer=analyzer,
-            tokenizer=tokenizer,
-            dataset=dataset,
-            seq_len=seq_len,
-            num_examples=num_examples,
-            save_path=gradients_cache_path,
-        )
-        logging.info("Gradient calculation complete.")
+    if overwrite_gradients and os.path.exists(gradients_cache_path):
+        # if the user wants to recalculate the gradients, delete the cached gradients
+        logging.info(f"Detected cached gradients at {gradients_cache_path}. Will delete and recalculate.")
+        os.remove(gradients_cache_path)
+
+    # this will overwrite the gradients cache if it already exists
+    model_gradients = get_gradients(
+        analyzer=analyzer,
+        tokenizer=tokenizer,
+        dataset=dataset,
+        seq_len=seq_len,
+        num_examples=num_examples,
+        save_path=gradients_cache_path,
+    )
+    logging.info("Gradient calculation complete.")
 
     if mode == 'gradients':
         return
