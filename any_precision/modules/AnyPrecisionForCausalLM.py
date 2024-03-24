@@ -17,18 +17,12 @@ from .AnyPrecisionLinear import AnyPrecisionLinear
 from any_precision.analyzer.analyzer import get_analyzer
 
 
-def set_op_by_name(layer, name, new_module):
-    levels = name.split('.')
-    if len(levels) > 1:
-        mod_ = layer
-        for l_idx in range(len(levels) - 1):
-            if levels[l_idx].isdigit():
-                mod_ = mod_[int(levels[l_idx])]
-            else:
-                mod_ = getattr(mod_, levels[l_idx])
-        setattr(mod_, levels[-1], new_module)
-    else:
-        setattr(layer, name, new_module)
+def replace_module_by_name(layer, module_name, new_module):
+    levels = module_name.split('.')
+    module = layer
+    for level in levels[:-1]:
+        module = getattr(module, level) if not level.isdigit() else module[int(level)]
+    setattr(module, levels[-1], new_module)
 
 
 class AnyPrecisionForCausalLM(nn.Module):
@@ -164,7 +158,7 @@ class AnyPrecisionForCausalLM(nn.Module):
                     device=module.weight.device,
                 )
                 self.ap_linears.append(wqlinear)
-                set_op_by_name(layer, name, wqlinear)
+                replace_module_by_name(layer, name, wqlinear)
 
             torch.cuda.empty_cache()
             gc.collect()
