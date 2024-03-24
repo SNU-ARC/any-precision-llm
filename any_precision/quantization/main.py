@@ -33,6 +33,7 @@ def any_precision_quantize(model,
                            overwrite_seed=False,
                            overwrite_upscale=False,
                            overwrite_pack=False,
+                           random_state=None
                            ):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
@@ -125,6 +126,7 @@ def any_precision_quantize(model,
         bit_width=seed_precision,
         output_folder=seed_cache_path,
         cpu_count=cpu_count,
+        random_state=random_state
     )
     logging.info("Seed calculation complete.")
 

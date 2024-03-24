@@ -162,6 +162,7 @@ def pack(
     }
     config.anyprec = anyprec_configs
 
+    logging.info(f"Writing model to disk...")
     os.makedirs(output_model_path, exist_ok=True)
     torch.save(state_dict, os.path.join(output_model_path, 'pytorch_model.bin'))
     tokenizer.save_pretrained(output_model_path)
