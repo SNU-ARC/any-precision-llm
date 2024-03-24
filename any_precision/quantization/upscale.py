@@ -262,51 +262,51 @@ def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit
     return _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit)
 
 
-def __load_values(seed_lut_path, seed_weights_path, layer_names, l):
+def __load_values(seed_lut_path, seed_weights_path, module_names, l):
     seed_lut_layer = torch.load(f"{seed_lut_path}/l{l}.pt")
     seed_weights_layer = torch.load(f"{seed_weights_path}/l{l}.pt")
 
     seed_lut_list, orig_weight_list = [], []
-    for name in layer_names:
+    for name in module_names:
         seed_lut_list.append(seed_lut_layer[name].astype(np.float32))
         orig_weight_list.append(seed_weights_layer[name].astype(np.uint8))
 
     return seed_lut_list, orig_weight_list
 
 
-def __save_results(parent_parameters_path, seed_precision, parent_precision, layer_names,
+def __save_results(parent_parameters_path, seed_precision, parent_precision, module_names,
                    luts_by_modules_by_bit, parent_weights, l):
     # Note that it is important to cast the luts to fp16 before saving them,
     # as we previously casted them to fp32 to use with numba
     for i, bit in enumerate(range(seed_precision, parent_precision + 1)):
         output_lut_file_name = f"{parent_parameters_path}/lut_{bit}/l{l}.pt"
         os.makedirs(os.path.dirname(output_lut_file_name), exist_ok=True)
-        lut_dict = {layer_names[j]: luts_by_modules_by_bit[i * len(layer_names) + j].astype(np.float16)
-                    for j in range(len(layer_names))}
+        lut_dict = {module_names[j]: luts_by_modules_by_bit[i * len(module_names) + j].astype(np.float16)
+                    for j in range(len(module_names))}
         torch.save(lut_dict, output_lut_file_name)
 
-    parent_weight_dict = {layer_names[j]: parent_weights[j].astype(np.uint8)
-                          for j in range(len(layer_names))}
+    parent_weight_dict = {module_names[j]: parent_weights[j].astype(np.uint8)
+                          for j in range(len(module_names))}
 
     output_weights_layer_file_name = f"{parent_parameters_path}/weights/l{l}.pt"
     os.makedirs(os.path.dirname(output_weights_layer_file_name), exist_ok=True)
     torch.save(parent_weight_dict, output_weights_layer_file_name)
 
 
-def _get_loader(seed_lut_path, seed_weights_path, layer_names):
+def _get_loader(seed_lut_path, seed_weights_path, module_names):
     """Returns a function that loads the values for a given layer"""
 
     def load_values(l):
-        return __load_values(seed_lut_path, seed_weights_path, layer_names, l)
+        return __load_values(seed_lut_path, seed_weights_path, module_names, l)
 
     return load_values
 
 
-def _get_saver(parent_parameters_path, seed_precision, parent_precision, layer_names):
+def _get_saver(parent_parameters_path, seed_precision, parent_precision, module_names):
     """Returns a function that saves the results for a given layer"""
 
     def save_results(luts_by_modules_by_bit, parent_weights, l):
-        return __save_results(parent_parameters_path, seed_precision, parent_precision, layer_names,
+        return __save_results(parent_parameters_path, seed_precision, parent_precision, module_names,
                               luts_by_modules_by_bit, parent_weights, l)
 
     return save_results
