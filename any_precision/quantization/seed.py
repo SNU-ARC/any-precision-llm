@@ -181,6 +181,7 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
 
 @numba.njit(parallel=True, cache=True)
 def seed_layer(layer_gradients, layer_modules, bit_width, random_state=None):
+    # WARNING: random_state does NOT guarantee reproducibility on different machines
     n_cluster = 2 ** bit_width
     layer_lut_by_module = []
     layer_weight_by_module = []
@@ -271,7 +272,7 @@ def get_seed(
         lut_per_layer, weight_per_layer = {}, {}
 
         for i, name in enumerate(analyzer.module_names):
-            lut_per_layer[name] = layer_lut_by_module[i]
+            lut_per_layer[name] = layer_lut_by_module[i].astype(np.float16)
             weight_per_layer[name] = layer_weight_by_module[i]
 
         # save parts
