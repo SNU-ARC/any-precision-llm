@@ -55,7 +55,6 @@ class ModelAnalyzer:
         self.state_dict = model.state_dict()
         self.dropped_original_weights = False
         self.num_layers = len(self.get_layers())
-        self.model_weights = None
 
     @classmethod
     def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict):
@@ -98,18 +97,15 @@ class ModelAnalyzer:
         """Return the relevant weights of the model."""
         if self.dropped_original_weights:
             raise ValueError("Original weights have been dropped")
-        if self.model_weights is not None:
-            return self.model_weights
         layers = self.get_layers()
         model_layers = []
-        for layer in tqdm(layers, desc="Converting model weights to np.fp32", leave=False):
+        for layer in layers:
             layer_data = {}
             modules = self.get_modules(layer)
             for name, module in modules.items():
-                layer_data[name] = module.weight.data.cpu().float().numpy()
+                layer_data[name] = module.weight.data.cpu()
             model_layers.append(layer_data)
-        self.model_weights = model_layers
-        return self.model_weights
+        return model_layers
 
     def get_model(self):
         """Return the model."""

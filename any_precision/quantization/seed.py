@@ -249,8 +249,10 @@ def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None, rand
                          f"delete the corresponding files in {lut_folder} and {weight_folder}")
             skipped_layers = []
 
-        gradient_layer = [gradients[l][name] for name in analyzer.module_names]
-        model_layer = [model_weights[l][name] for name in analyzer.module_names]
+        # Convert from torch.bf16 to np.fp32 for numba processing
+        # Only converts one layer at a time to avoid excessive memory usage
+        gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
+        model_layer = [model_weights[l][name].float().numpy() for name in analyzer.module_names]
 
         layer_lut_by_module, layer_weight_by_module = seed_layer(
             gradient_layer,

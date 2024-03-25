@@ -254,6 +254,17 @@ def _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, see
     return lut_by_modules_by_bit, parent_weights_by_modules
 
 
+def _upscale_layer(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit):
+    if seed_bit == parent_bit:
+        return seed_lut, seed_weights
+
+    # Convert gradients and model weights to np.float32 for numba
+    gradient_layer = [x.float().numpy() for x in gradient_layer]
+    model_layer = [x.float().numpy() for x in model_layer]
+
+    return _upscale_layer_njit(seed_lut, seed_weights, model_layer, gradient_layer, seed_bit, parent_bit)
+
+
 def __load_values(seed_lut_path, seed_weights_path, module_names, l):
     seed_lut_layer = torch.load(f"{seed_lut_path}/l{l}.pt")
     seed_weights_layer = torch.load(f"{seed_weights_path}/l{l}.pt")
@@ -341,13 +352,6 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
 
     ran = list(range(len(model_weights)))
 
-    # Load gradients
-    if isinstance(gradients, str):
-        print("Loading gradients...")
-        gradients = torch.load(gradients)
-    else:
-        assert isinstance(gradients, list), "gradients should be a string or a list"
-
     module_names = analyzer.module_names
 
     # Format the weights and gradients
@@ -393,11 +397,14 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
                 if l != ran[-1]:
                     future_load = io_executor.submit(load_values, l + 1)
 
-                luts_by_modules_by_bit, parent_weights = _upscale_layer_njit(seed_lut_layer, seed_qweight_layer,
-                                                                             model_weights_by_layer[l],
-                                                                             gradients_by_layer[l],
-                                                                             seed_precision,
-                                                                             parent_precision)
+                luts_by_modules_by_bit, parent_weights = _upscale_layer(
+                    seed_lut_layer,
+                    seed_qweight_layer,
+                    model_weights_by_layer[l],
+                    gradients_by_layer[l],
+                    seed_precision,
+                    parent_precision
+                )
 
                 io_executor.submit(save_results, luts_by_modules_by_bit, parent_weights, l)
             print("Waiting for IO to finish...")
@@ -405,10 +412,13 @@ def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
         for l in tqdm(ran, desc="Quantizing layers"):
             seed_lut_layer, seed_qweight_layer = load_values(l)
 
-            luts_by_modules_by_bit, parent_weights = _upscale_layer_njit(seed_lut_layer, seed_qweight_layer,
-                                                                         model_weights_by_layer[l],
-                                                                         gradients_by_layer[l],
-                                                                         seed_precision,
-                                                                         parent_precision)
+            luts_by_modules_by_bit, parent_weights = _upscale_layer(
+                seed_lut_layer,
+                seed_qweight_layer,
+                model_weights_by_layer[l],
+                gradients_by_layer[l],
+                seed_precision,
+                parent_precision
+            )
 
             save_results(luts_by_modules_by_bit, parent_weights, l)
