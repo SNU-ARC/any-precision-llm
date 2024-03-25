@@ -1,7 +1,6 @@
 import torch
 from tqdm import tqdm
 import os
-from .utils import load_tokenizer
 import logging
 from .config import *
 from any_precision.analyzer.analyzer import get_analyzer
@@ -10,7 +9,6 @@ from .datautils import get_tokens
 
 def get_gradients(
         analyzer,
-        tokenizer,
         dataset=DEFAULT_DATASET,
         seq_len=DEFAULT_SEQ_LEN,
         num_examples=DEFAULT_NUM_EXAMPLES,
@@ -25,7 +23,7 @@ def get_gradients(
     logging.info(f"Fetching {dataset} dataset...")
 
     model = analyzer.model
-    tokenizer = load_tokenizer(tokenizer)
+    tokenizer = analyzer.tokenizer
 
     input_tokens = get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
 

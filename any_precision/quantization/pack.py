@@ -4,7 +4,6 @@ import os
 import torch
 import logging
 from multiprocessing import Pool
-from .utils import load_tokenizer
 import numba
 
 _bytes_per_thread = 4
@@ -117,7 +116,6 @@ def _process_layer_data(args):
 
 def pack(
         analyzer,
-        tokenizer,
         lut_path,
         output_model_path,
         seed_precision,
@@ -134,7 +132,7 @@ def pack(
                         f"Original value: {cpu_count}")
         cpu_count = _max_cpu_count
 
-    tokenizer = load_tokenizer(tokenizer)
+    tokenizer = analyzer.tokenizer
 
     num_layers = analyzer.num_layers
 

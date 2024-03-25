@@ -217,7 +217,14 @@ def set_np_seed_njit(random_state):
     np.random.seed(random_state)
 
 
-def get_seed(analyzer, gradients, bit_width, output_folder, cpu_count=None, random_state=None):
+def get_seed(
+        analyzer,
+        gradients,
+        bit_width,
+        output_folder,
+        cpu_count=None,
+        random_state=None
+):
     if cpu_count is None:
         cpu_count = os.cpu_count()
 

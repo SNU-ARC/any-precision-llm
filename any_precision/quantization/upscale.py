@@ -329,8 +329,15 @@ def _load_progress(ran, parent_parameters_path, seed_precision, parent_precision
     return todo_ran, processed_ran
 
 
-def upscale(analyzer, seed_precision, parent_precision, seed_parameters_path,
-            parent_parameters_path, gradients, cpu_count=None):
+def upscale(
+        analyzer,
+        seed_precision,
+        parent_precision,
+        seed_parameters_path,
+        parent_parameters_path,
+        gradients,
+        cpu_count=None
+):
     if cpu_count is None:
         cpu_count = os.cpu_count()
     # Determine IO and threading settings based on the number of cores

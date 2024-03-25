@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer
+from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer, PreTrainedTokenizerBase
 
 
 def load_model(model_str_or_model, dtype=torch.bfloat16):
@@ -17,18 +17,6 @@ def load_model(model_str_or_model, dtype=torch.bfloat16):
     return model
 
 
-def is_transformers_tokenizer(obj):
-    # List of methods typically found in a transformers tokenizer
-    methods_to_check = [
-        '__call__', 'encode', 'decode', 'tokenize',
-        'convert_tokens_to_ids', 'convert_ids_to_tokens',
-        'save_pretrained', 'from_pretrained'
-    ]
-
-    # Check if all the methods are present in the object
-    return all(hasattr(obj, method) for method in methods_to_check)
-
-
 def load_tokenizer(model_str_or_model_or_tokenizer):
     """Returns a tokenizer from the model string or model object or tokenizer object"""
     if isinstance(model_str_or_model_or_tokenizer, str):
@@ -38,6 +26,6 @@ def load_tokenizer(model_str_or_model_or_tokenizer):
         model_str = model_str_or_model_or_tokenizer.name_or_path
         return AutoTokenizer.from_pretrained(model_str, trust_remote_code=True)
     else:
-        assert is_transformers_tokenizer(model_str_or_model_or_tokenizer), \
+        assert isinstance(model_str_or_model_or_tokenizer, PreTrainedTokenizerBase), \
             f"Unsupported type for model_str_or_model_or_tokenizer: {type(model_str_or_model_or_tokenizer)}"
         return model_str_or_model_or_tokenizer

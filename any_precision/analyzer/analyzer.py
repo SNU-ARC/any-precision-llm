@@ -3,10 +3,13 @@ import torch
 import yaml
 import os
 import logging
-from tqdm import tqdm
+from .utils import load_model, load_tokenizer
 
 
-def get_analyzer(model, yaml_path=None):
+def get_analyzer(model, yaml_path=None, include_tokenizer=False):
+    # Load model from string if necessary
+    model = load_model(model)
+
     # Anyprecision quantized model
     if hasattr(model.config, 'anyprec'):
         return ModelAnalyzer.from_arch_config(model, model.config.anyprec['arch_config'])
@@ -22,13 +25,13 @@ def get_analyzer(model, yaml_path=None):
                 with open(os.path.join(yaml_dir, file)) as f:
                     yaml_contents = yaml.safe_load(f)
                 if model.config.architectures[0] == yaml_contents['architecture']:
-                    return ModelAnalyzer.from_arch_config(model, yaml_contents['arch_config'])
+                    return ModelAnalyzer.from_arch_config(model, yaml_contents['arch_config'], include_tokenizer)
         else:
             # If no yaml file is found, use AutoQuantConfig
             logging.warning((f"Attempting to use AutoArchConfig for architecture:"
                              f" {model.config.architectures[0]}"))
             logging.warning("This may not work as expected!")
-            return ModelAnalyzer.from_autoconfig(model)
+            return ModelAnalyzer.from_autoconfig(model, include_tokenizer=include_tokenizer)
 
     # Specified model quantization config
     else:
@@ -36,7 +39,7 @@ def get_analyzer(model, yaml_path=None):
             raise FileNotFoundError(f"Specified yaml file does not exist: {yaml_path}")
         with open(yaml_path) as f:
             quant_config = yaml.safe_load(f)
-        return ModelAnalyzer.from_arch_config(model, quant_config)
+        return ModelAnalyzer.from_arch_config(model, quant_config, include_tokenizer=include_tokenizer)
 
 
 class ModelAnalyzer:
@@ -46,7 +49,7 @@ class ModelAnalyzer:
     constructor. Alternatively, you can instantiate from a yaml file using the from_yaml method.
     """
 
-    def __init__(self, model: AutoModelForCausalLM, module_names, model_name, layers_name):
+    def __init__(self, model: AutoModelForCausalLM, module_names, model_name, layers_name, include_tokenizer=False):
         self.model = model
         self.module_names = module_names
         self.model_name = model_name
@@ -55,10 +58,13 @@ class ModelAnalyzer:
         self.state_dict = model.state_dict()
         self.dropped_original_weights = False
         self.num_layers = len(self.get_layers())
+        self.tokenizer = None
+        if include_tokenizer:
+            self.tokenizer = load_tokenizer(model)
 
     @classmethod
-    def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict):
-        return cls(model, **quant_config)
+    def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict, include_tokenizer=False):
+        return cls(model, **quant_config, include_tokenizer=include_tokenizer)
 
     def get_arch_config(self):
         quant_config = {
@@ -69,10 +75,10 @@ class ModelAnalyzer:
         return quant_config
 
     @classmethod
-    def from_autoconfig(cls, model: AutoModelForCausalLM):
+    def from_autoconfig(cls, model: AutoModelForCausalLM, include_tokenizer=False):
         """Instantiate a ModelAnalyzer from an AutoConfig."""
         auto_config = AutoArchConfig(model)
-        return cls(model, **auto_config.to_dict())
+        return cls(model, **auto_config.to_dict(), include_tokenizer=include_tokenizer)
 
     def get_layers(self):
         """Return the layers of the model."""
@@ -126,7 +132,6 @@ class ModelAnalyzer:
 
         self.model = None
         self.dropped_original_weights = True
-
 
 
 class AutoArchConfig:

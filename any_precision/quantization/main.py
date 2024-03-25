@@ -5,11 +5,9 @@ from .seed import get_seed
 import os
 import os.path
 import shutil
-import torch
 import logging
 
 from .config import *
-from .utils import load_model, load_tokenizer
 from ..analyzer import get_analyzer
 from .gradients import get_gradients
 from .upscale import upscale
@@ -22,19 +20,20 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 
-def any_precision_quantize(model,
-                           seed_precision=DEFAULT_SEED_PRECISION,
-                           parent_precision=DEFAULT_PARENT_PRECISION,
-                           mode='upscale',
-                           yaml_path=None, cache_dir=DEFAULT_CACHE_DIR,
-                           dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
-                           cpu_count=os.cpu_count(),
-                           overwrite_gradients=False,
-                           overwrite_seed=False,
-                           overwrite_upscale=False,
-                           overwrite_pack=False,
-                           random_state=None
-                           ):
+def any_precision_quantize(
+        model,
+        seed_precision=DEFAULT_SEED_PRECISION,
+        parent_precision=DEFAULT_PARENT_PRECISION,
+        mode='upscale',
+        yaml_path=None, cache_dir=DEFAULT_CACHE_DIR,
+        dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
+        cpu_count=os.cpu_count(),
+        overwrite_gradients=False,
+        overwrite_seed=False,
+        overwrite_upscale=False,
+        overwrite_pack=False,
+        random_state=None
+):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
 
@@ -71,12 +70,7 @@ def any_precision_quantize(model,
 
     # ------------------- Load model -------------------
 
-    model = load_model(model)
-    tokenizer = load_tokenizer(model_string)
-
-    analyzer = get_analyzer(model, yaml_path=yaml_path)
-
-    del model
+    analyzer = get_analyzer(model, yaml_path=yaml_path, include_tokenizer=True)
 
     # ------------------- Gradients -------------------
 
@@ -91,10 +85,9 @@ def any_precision_quantize(model,
         logging.info(f"Detected cached gradients at {gradients_cache_path}. Will delete and recalculate.")
         os.remove(gradients_cache_path)
 
-    # this will overwrite the gradients cache if it already exists
+    # this will load and return the gradients if they exist, or calculate them if they don't
     model_gradients = get_gradients(
         analyzer=analyzer,
-        tokenizer=tokenizer,
         dataset=dataset,
         seq_len=seq_len,
         num_examples=num_examples,
@@ -148,6 +141,7 @@ def any_precision_quantize(model,
         logging.info(f"Detected cached parent at {parent_cache_path}. Will delete and recalculate.")
         shutil.rmtree(parent_cache_path)
 
+    # this skips over existing layers in the cache, and doesn't overwrite them
     upscale(
         analyzer=analyzer,
         seed_precision=seed_precision,
@@ -182,7 +176,6 @@ def any_precision_quantize(model,
 
     pack(
         analyzer=analyzer,
-        tokenizer=tokenizer,
         lut_path=parent_cache_path,
         output_model_path=model_output_path,
         seed_precision=seed_precision,
