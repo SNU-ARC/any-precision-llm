@@ -21,7 +21,9 @@ if __name__ == "__main__":
                         help="Whether to overwrite the parent model stored to disk")
     parser.add_argument("--overwrite_pack", action="store_true",
                         help="Whether to overwrite the packed model stored to disk")
-    parser.add_argument("--random_state", type=int, help="The random state to use for reproducibility")
+    parser.add_argument("--random_state", type=int,
+                        help="The random state to use for reproducibility\n"
+                             "[WARNING] May not be reproducible across different machines")
 
     args = parser.parse_args()
 
