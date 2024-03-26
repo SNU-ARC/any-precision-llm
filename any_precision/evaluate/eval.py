@@ -14,6 +14,12 @@ def fake_pack(parent_path, verbose=True):
     # WARNING: This is for PPL research only, and should not be used for any other purpose
     import re
     logprint(verbose, f"Simulating Any-Precision model from non-packed parent model at {parent_path}")
+
+    for file in os.listdir('./cache/fake_packed'):
+        if parent_path.split("/")[-1] in file:
+            logprint(verbose, f"Faked packed model already exists for {parent_path.split('/')[-1]}. Skipping...")
+            return
+
     original_model_repo = base_model_name_to_hf_repo_name(name_splitter(parent_path)[0][1:-1])
     tokenizer = AutoTokenizer.from_pretrained(original_model_repo)
 
@@ -27,7 +33,7 @@ def fake_pack(parent_path, verbose=True):
     files = os.listdir(parent_path + '/weights')
     layer_count = len(files)  # this should suffice
     qweights = [None] * layer_count
-    for file in files:
+    for file in tqdm(files, desc="Loading qweights", disable=not verbose):
         # filenames should be 'l0.pt'
         layer = int(re.match(r'l(\d+).pt', file).group(1))
         qweights[layer] = torch.load(parent_path + '/weights/' + file)
