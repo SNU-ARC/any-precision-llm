@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import numba
 from tqdm import tqdm
+import logging
 
 parser = argparse.ArgumentParser()
 
@@ -351,9 +352,9 @@ def upscale(
         numba.set_num_threads(cpu_count)
 
     assert seed_precision <= parent_precision, "Parent precision should be equal or higher than seed precision"
-    print(f"Upscaling from {seed_precision} to {parent_precision}")
+    logging.info(f"Upscaling from {seed_precision} to {parent_precision}")
 
-    print("Loading original model weights...")
+    logging.info("Loading original model weights...")
 
     model_weights = analyzer.get_model_weights()
 
@@ -362,7 +363,7 @@ def upscale(
     module_names = analyzer.module_names
 
     # Format the weights and gradients
-    print("Formatting weights and gradients...")
+    logging.info("Formatting weights and gradients...")
     model_weights_by_layer = []
     gradients_by_layer = []
     for l in ran:
@@ -376,18 +377,17 @@ def upscale(
     ran, completed = _load_progress(ran, parent_parameters_path, seed_precision, parent_precision)
 
     if completed:
-        print("The following layers will be skipped as they have already been processed:")
-        print(completed)
-        print(f"To reprocess these layers, delete the corresponding files in {parent_parameters_path}")
+        logging.info(f"The following layers will be skipped as they have already been processed:\n{completed}")
+        logging.info(f"To reprocess these layers, delete the corresponding files in {parent_parameters_path}")
 
     if not ran:
-        print("All layers have already been processed. Exiting...")
+        logging.info("All layers have already been processed. Exiting...")
         return
 
     seed_weights_path = f"{seed_parameters_path}/weights"
     seed_lut_path = f"{seed_parameters_path}/lut"
 
-    print(f"Quantizing layers {ran}")
+    logging.info(f"Quantizing layers {ran}")
 
     load_values = _get_loader(seed_lut_path, seed_weights_path, module_names)
 
@@ -414,7 +414,7 @@ def upscale(
                 )
 
                 io_executor.submit(save_results, luts_by_modules_by_bit, parent_weights, l)
-            print("Waiting for IO to finish...")
+            logging.info("Waiting for IO to finish...")
     else:
         for l in tqdm(ran, desc="Quantizing layers"):
             seed_lut_layer, seed_qweight_layer = load_values(l)
