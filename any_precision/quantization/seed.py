@@ -296,6 +296,10 @@ def get_seed(
         logging.info(f"To reprocess these layers, "
                      f"delete the corresponding files in {lut_folder} and {weight_folder}")
 
+    if not layers_to_process:
+        logging.info("All layers have already been processed. Exiting...")
+        return
+
     model_weights = analyzer.get_model_weights()
 
     logging.info(f"Quantizing layers {layers_to_process}")
