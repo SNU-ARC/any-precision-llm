@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import numba
+from concurrent.futures import ThreadPoolExecutor
 
 
 @numba.njit(cache=True)
@@ -218,6 +219,44 @@ def set_np_seed_njit(random_state):
     np.random.seed(random_state)
 
 
+def get_layer_loader(model_weights, gradients, module_names):
+    def layer_loader(l):
+        # Convert from torch.bf16 to np.fp32 for numba processing
+        # Only converts one layer at a time to avoid excessive memory usage
+        gradient_layer = [gradients[l][name].float().numpy() for name in module_names]
+        model_layer = [model_weights[l][name].float().numpy() for name in module_names]
+        return gradient_layer, model_layer
+
+    return layer_loader
+
+
+def get_saver(lut_folder, weight_folder, module_names):
+    def layer_saver(l, layer_lut_by_module, layer_weight_by_module):
+        lut_per_layer, weight_per_layer = {}, {}
+
+        for i, name in enumerate(module_names):
+            lut_per_layer[name] = layer_lut_by_module[i].astype(np.float16)
+            weight_per_layer[name] = layer_weight_by_module[i]
+
+        # save parts
+        torch.save(lut_per_layer, f"{lut_folder}/l{l}.pt")
+        torch.save(weight_per_layer, f"{weight_folder}/l{l}.pt")
+
+    return layer_saver
+
+
+def load_progress(layer_count, lut_folder, weight_folder):
+    processed_layers = []
+    to_process = []
+    for l in range(layer_count):
+        if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
+            processed_layers.append(l)
+        else:
+            to_process.append(l)
+
+    return processed_layers, to_process
+
+
 def get_seed(
         analyzer,
         gradients,
@@ -228,6 +267,15 @@ def get_seed(
 ):
     if cpu_count is None:
         cpu_count = os.cpu_count()
+    # Determine IO and threading settings based on the number of cores
+    if cpu_count >= 8:
+        pipelined_io = True
+        io_workers = 2 if cpu_count >= 64 else 1
+        numba.set_num_threads(cpu_count - io_workers)
+    else:
+        pipelined_io = False
+        io_workers = 0  # No separate IO workers needed for non-pipelined IO
+        numba.set_num_threads(cpu_count)
 
     numba.set_num_threads(cpu_count)
 
@@ -241,45 +289,49 @@ def get_seed(
     if not os.path.exists(weight_folder):
         os.makedirs(weight_folder)
 
-    model_weights = analyzer.get_model_weights()
+    layers_to_skip, layers_to_process = load_progress(len(analyzer.get_model_weights()), lut_folder, weight_folder)
 
-    logging.info(f"Quantizing layers {list(range(len(model_weights)))}")
-
-    skipped_layers = []
-
-    for l in tqdm(range(len(model_weights)), desc="Quantizing layers..."):
-        if os.path.exists(f"{lut_folder}/l{l}.pt") and os.path.exists(f"{weight_folder}/l{l}.pt"):
-            skipped_layers.append(l)
-            continue
-        if skipped_layers:
-            logging.info(f"The following layers have been skipped: {skipped_layers}")
-            logging.info(f"To reprocess these layers, "
-                         f"delete the corresponding files in {lut_folder} and {weight_folder}")
-            skipped_layers = []
-
-        # Convert from torch.bf16 to np.fp32 for numba processing
-        # Only converts one layer at a time to avoid excessive memory usage
-        gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
-        model_layer = [model_weights[l][name].float().numpy() for name in analyzer.module_names]
-
-        layer_lut_by_module, layer_weight_by_module = seed_layer(
-            gradient_layer,
-            model_layer,
-            bit_width,
-            random_state=random_state
-        )
-
-        lut_per_layer, weight_per_layer = {}, {}
-
-        for i, name in enumerate(analyzer.module_names):
-            lut_per_layer[name] = layer_lut_by_module[i].astype(np.float16)
-            weight_per_layer[name] = layer_weight_by_module[i]
-
-        # save parts
-        torch.save(lut_per_layer, f"{lut_folder}/l{l}.pt")
-        torch.save(weight_per_layer, f"{weight_folder}/l{l}.pt")
-
-    if skipped_layers:
-        logging.info(f"The following layers have been skipped: {skipped_layers}")
+    if layers_to_skip:
+        logging.info(f"The following layers have been skipped as they have already been processed:\n{layers_to_skip}")
         logging.info(f"To reprocess these layers, "
                      f"delete the corresponding files in {lut_folder} and {weight_folder}")
+
+    model_weights = analyzer.get_model_weights()
+
+    logging.info(f"Quantizing layers {layers_to_process}")
+
+    layer_loader = get_layer_loader(model_weights, gradients, analyzer.module_names)
+    layer_saver = get_saver(lut_folder, weight_folder, analyzer.module_names)
+
+    if pipelined_io:
+        with ThreadPoolExecutor(max_workers=io_workers) as io_executor:
+            for l in tqdm(layers_to_process, desc="Quantizing layers..."):
+                if l == layers_to_process[0]:
+                    future_load = io_executor.submit(layer_loader, l)
+
+                gradient_layer, model_layer = future_load.result()
+
+                if l != layers_to_process[-1]:
+                    future_load = io_executor.submit(layer_loader, l + 1)
+
+                layer_lut_by_module, layer_weight_by_module = seed_layer(
+                    gradient_layer,
+                    model_layer,
+                    bit_width,
+                    random_state=random_state
+                )
+
+                io_executor.submit(layer_saver, l, layer_lut_by_module, layer_weight_by_module)
+            logging.info("Waiting for IO to finish...")
+    else:
+        for l in tqdm(layers_to_process, desc="Quantizing layers..."):
+            gradient_layer, model_layer = layer_loader(l)
+
+            layer_lut_by_module, layer_weight_by_module = seed_layer(
+                gradient_layer,
+                model_layer,
+                bit_width,
+                random_state=random_state
+            )
+
+            layer_saver(l, layer_lut_by_module, layer_weight_by_module)
