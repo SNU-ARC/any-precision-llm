@@ -181,30 +181,37 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
 
 
 @numba.njit(parallel=True, cache=True)
-def seed_layer(layer_gradients, layer_modules, bit_width, random_state=None):
+def seed_layer(layer_gradients, layer_modules, bit_width, group_size, random_state=None):
     # WARNING: random_state does NOT guarantee reproducibility on different machines
     n_cluster = 2 ** bit_width
     layer_lut_by_module = []
     layer_weight_by_module = []
 
     for module_gradient, module_weight in zip(layer_gradients, layer_modules):
-        module_lut = np.empty((module_weight.shape[0], 1, n_cluster), dtype=np.float32)
-        q_module_weight = np.empty((module_weight.shape[0], 1, module_weight.shape[1]), dtype=np.uint8)
+        current_group_size = group_size if group_size > 0 else module_weight.shape[1]
+        assert module_weight.shape[1] % current_group_size == 0, \
+            f"Group size {current_group_size} does not divide {module_weight.shape[1]}"
+        group_count = module_weight.shape[1] // current_group_size
+        module_lut = np.empty((module_weight.shape[0], group_count, n_cluster), dtype=np.float32)
+        q_module_weight = np.empty((module_weight.shape[0], group_count, current_group_size), dtype=np.uint8)
         for i in numba.prange(module_weight.shape[0]):
-            if random_state is not None:  # this needs to be set per thread
-                set_np_seed_njit(random_state)
-            weights_np = module_weight[i, :]
+            set_np_seed_njit(random_state)  # this needs to be set per thread
+            for j in range(group_count):
+                start_col_idx = j * current_group_size
+                end_col_idx = (j + 1) * current_group_size
 
-            weight_mask = weights_np != 0
-            sample_weight = module_gradient[i, :]
-            sample_weight = sample_weight * weight_mask
+                weights_np = module_weight[i, start_col_idx:end_col_idx]
 
-            if np.sum(sample_weight) == 0:
-                sample_weight = np.ones_like(sample_weight)
+                weight_mask = weights_np != 0
+                sample_weight = module_gradient[i, start_col_idx:end_col_idx]
+                sample_weight = sample_weight * weight_mask
 
-            centroids, labels = my_kmeans(weights_np, sample_weight, n_cluster)
-            module_lut[i, 0, :] = centroids
-            q_module_weight[i, 0, :] = labels
+                if np.sum(sample_weight) == 0:
+                    sample_weight = np.ones_like(sample_weight)
+
+                centroids, labels = my_kmeans(weights_np, sample_weight, n_cluster)
+                module_lut[i, j, :] = centroids
+                q_module_weight[i, j, :] = labels
 
         layer_lut_by_module.append(module_lut)
         layer_weight_by_module.append(q_module_weight)
@@ -216,7 +223,8 @@ def seed_layer(layer_gradients, layer_modules, bit_width, random_state=None):
 def set_np_seed_njit(random_state):
     """Set the seed for numpy random number generator.
     Must be used in a numba.jit function."""
-    np.random.seed(random_state)
+    if random_state is not None:
+        np.random.seed(random_state)
 
 
 def get_layer_loader(model_weights, gradients, module_names):
@@ -263,7 +271,8 @@ def get_seed(
         bit_width,
         output_folder,
         cpu_count=None,
-        random_state=None
+        random_state=None,
+        group_size=-1,
 ):
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -322,7 +331,8 @@ def get_seed(
                     gradient_layer,
                     model_layer,
                     bit_width,
-                    random_state=random_state
+                    group_size,
+                    random_state=random_state,
                 )
 
                 io_executor.submit(layer_saver, l, layer_lut_by_module, layer_weight_by_module)
@@ -335,6 +345,7 @@ def get_seed(
                 gradient_layer,
                 model_layer,
                 bit_width,
+                group_size,
                 random_state=random_state
             )
 

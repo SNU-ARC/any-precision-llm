@@ -24,6 +24,8 @@ if __name__ == "__main__":
     parser.add_argument("--random_state", type=int,
                         help="The random state to use for reproducibility\n"
                              "[WARNING] May not be reproducible across different machines")
+    parser.add_argument("--group_size", type=int,
+                        help="The group size to use for quantization, -1 to produce one group per row")
 
     args = parser.parse_args()
 
