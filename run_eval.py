@@ -16,6 +16,7 @@ model_paths = []
 
 # Uncomment the line below to run baseline models
 # model_paths += utils.get_base_models(include_prequant=False, relevant_models_only=True)
+model_paths += utils.get_subdirs(f'{args.cache_dir}/fake_packed')
 model_paths += utils.get_subdirs(f'{args.cache_dir}/packed')
 
 # testcases for perplexity calculation

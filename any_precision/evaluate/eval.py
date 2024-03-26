@@ -1,12 +1,90 @@
 from .helpers import dataloader
 from tqdm import tqdm
 import torch
-from .helpers.utils import vprint, logprint, get_tokenizer_type
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from .helpers.utils import vprint, logprint, get_tokenizer_type, name_splitter, base_model_name_to_hf_repo_name
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from ..modules import AnyPrecisionForCausalLM
 import os
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
+
+
+def fake_pack(parent_path, verbose=True):
+    # Load from non-packed parent model to simulate quantization
+    # WARNING: This is for PPL research only, and should not be used for any other purpose
+    import re
+    logprint(verbose, f"Simulating Any-Precision model from non-packed parent model at {parent_path}")
+    original_model_repo = base_model_name_to_hf_repo_name(name_splitter(parent_path)[0][1:-1])
+    tokenizer = AutoTokenizer.from_pretrained(original_model_repo)
+
+    logprint(verbose, f"Loading original model from {original_model_repo}")
+    # Load the model from the original model repo
+    model = AutoModelForCausalLM.from_pretrained(original_model_repo, torch_dtype=torch.float16,
+                                                 trust_remote_code=True)
+
+    logprint(verbose, f"Loading quantized weights from {parent_path}")
+    # Load the qweights
+    files = os.listdir(parent_path + '/weights')
+    layer_count = len(files)  # this should suffice
+    qweights = [None] * layer_count
+    for file in files:
+        # filenames should be 'l0.pt'
+        layer = int(re.match(r'l(\d+).pt', file).group(1))
+        qweights[layer] = torch.load(parent_path + '/weights/' + file)
+
+    logprint(verbose, f"Loading LUTs from {parent_path}")
+    # get a list of directories in the model_path
+    dirs = os.listdir(parent_path)
+    dirs.remove('weights')
+    luts = {}
+    # Only the LUT directories should remain
+    for lut_dir in dirs:
+        # example: lut_3
+        bit = int(re.match(r'lut_(\d+)', lut_dir).group(1))
+        for file in tqdm(os.listdir(parent_path + '/' + lut_dir), desc=f"Loading {bit}-bit LUTs",
+                         disable=not verbose):
+            # example: l0.pt
+            layer = int(re.match(r'l(\d+).pt', file).group(1))
+            if bit not in luts:
+                luts[bit] = [None] * layer_count
+            luts[bit][layer] = torch.load(parent_path + '/' + lut_dir + '/' + file)
+
+    logprint(verbose, f"Replacing qweights with centroids from LUTs...")
+
+    max_bit = max(luts.keys())
+
+    for bit in luts:
+        state_dict = model.state_dict()
+        for layer in tqdm(range(layer_count), desc=f"Replacing qweights with {bit}-bit centroids",):
+            qweight = qweights[layer]
+            lut = luts[bit][layer]
+            for module_name in qweight:
+                full_param_name_suffix = f".{layer}.{module_name}.weight"
+                matching_keys = [key for key in state_dict.keys() if key.endswith(full_param_name_suffix)]
+                assert len(matching_keys) == 1, f"Expected 1 matching key, got {len(matching_keys)}"
+                matching_key = matching_keys[0]
+
+                module_qweight = qweight[module_name]
+                module_lut = lut[module_name]
+                module_weights = []
+                for row_idx in range(module_qweight.shape[0]):
+                    row_weights = []
+                    for group_idx in range(module_qweight.shape[1]):
+                        group_weights = module_lut[row_idx][group_idx][
+                            module_qweight[row_idx][group_idx] >> (max_bit - bit)]
+                        row_weights.append(torch.from_numpy(group_weights))
+                    # join the group weights
+                    row_weights = torch.cat(row_weights, dim=0)
+                    module_weights.append(row_weights)
+                module_weights = torch.stack(module_weights)
+                state_dict[matching_key] = module_weights
+
+        save_path = f'./cache/fake_packed/fake_anyprec-p{bit}-{parent_path.split("/")[-1]}'
+        os.makedirs(save_path, exist_ok=True)
+        torch.save(state_dict, save_path + '/pytorch_model.bin')
+        tokenizer.save_pretrained(save_path)
+        model.config.save_pretrained(save_path)
+        logprint(verbose, f"{bit}-bit model saved to {save_path}")
 
 
 @torch.no_grad()
@@ -23,7 +101,7 @@ def auto_model_load(model_path, device='cuda', dtype=torch.float16, verbose=True
     """
     logprint(verbose, "Loading tokenizer and model...")
 
-    if 'anyprec-' in model_path:
+    if os.path.basename(model_path).startswith("anyprec-"):
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AnyPrecisionForCausalLM.from_quantized(model_path).to(device)
     else:
