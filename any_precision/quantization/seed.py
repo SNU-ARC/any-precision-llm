@@ -181,24 +181,23 @@ def my_kmeans(X, sample_weight, n_clusters, max_iter=50):
 
 
 @numba.njit(parallel=True, cache=True)
-def seed_layer(layer_gradients, layer_modules, bit_width, group_size, random_state=None):
+def seed_layer(layer_gradients, layer_modules, bit_width, group_count, random_state=None):
     # WARNING: random_state does NOT guarantee reproducibility on different machines
     n_cluster = 2 ** bit_width
     layer_lut_by_module = []
     layer_weight_by_module = []
 
     for module_gradient, module_weight in zip(layer_gradients, layer_modules):
-        current_group_size = group_size if group_size > 0 else module_weight.shape[1]
-        assert module_weight.shape[1] % current_group_size == 0, \
-            f"Group size {current_group_size} does not divide {module_weight.shape[1]}"
-        group_count = module_weight.shape[1] // current_group_size
+        group_size = module_weight.shape[1] // group_count
+        assert group_size * group_count == module_weight.shape[1], \
+            f"Group count {group_count} does not divide the number of columns {module_weight.shape[1]}"
         module_lut = np.empty((module_weight.shape[0], group_count, n_cluster), dtype=np.float32)
-        q_module_weight = np.empty((module_weight.shape[0], group_count, current_group_size), dtype=np.uint8)
+        q_module_weight = np.empty((module_weight.shape[0], group_count, group_size), dtype=np.uint8)
         for i in numba.prange(module_weight.shape[0]):
             set_np_seed_njit(random_state)  # this needs to be set per thread
             for j in range(group_count):
-                start_col_idx = j * current_group_size
-                end_col_idx = (j + 1) * current_group_size
+                start_col_idx = j * group_size
+                end_col_idx = (j + 1) * group_size
 
                 weights_np = module_weight[i, start_col_idx:end_col_idx]
 
@@ -272,7 +271,7 @@ def get_seed(
         output_folder,
         cpu_count=None,
         random_state=None,
-        group_size=-1,
+        group_count=1,
 ):
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -331,7 +330,7 @@ def get_seed(
                     gradient_layer,
                     model_layer,
                     bit_width,
-                    group_size,
+                    group_count,
                     random_state=random_state,
                 )
 
@@ -345,7 +344,7 @@ def get_seed(
                 gradient_layer,
                 model_layer,
                 bit_width,
-                group_size,
+                group_count,
                 random_state=random_state
             )
 

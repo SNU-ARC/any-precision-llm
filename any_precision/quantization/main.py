@@ -33,7 +33,7 @@ def any_precision_quantize(
         overwrite_upscale=False,
         overwrite_pack=False,
         random_state=None,
-        group_size=-1
+        group_count=1,
 ):
     assert mode in ['gradients', 'seed', 'upscale'], \
         "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
@@ -103,8 +103,7 @@ def any_precision_quantize(
 
     logging.info("------------------- Seed -------------------")
 
-    seed_cache_path = (f"{cache_dir}/seed/({model_name})-w{seed_precision}"
-                       f"{f'-g{group_size}' if group_size != -1 else ''}"
+    seed_cache_path = (f"{cache_dir}/seed/({model_name})-w{seed_precision}-gc{group_count}"
                        f"-{dataset}_s{num_examples}_blk{seq_len}")
 
     # Calculate or load seed
@@ -123,7 +122,7 @@ def any_precision_quantize(
         output_folder=seed_cache_path,
         cpu_count=cpu_count,
         random_state=random_state,
-        group_size=group_size,
+        group_count=group_count,
     )
     logging.info("Seed calculation complete.")
 
@@ -134,8 +133,7 @@ def any_precision_quantize(
 
     logging.info("------------------- Upscale -------------------")
 
-    parent_cache_path = (f"{cache_dir}/parent/({model_name})-w{parent_precision}_orig{seed_precision}"
-                         f"{f'-g{group_size}' if group_size != -1 else ''}"
+    parent_cache_path = (f"{cache_dir}/parent/({model_name})-w{parent_precision}_orig{seed_precision}-gc{group_count}"
                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
     # Calculate or load parent
@@ -166,8 +164,7 @@ def any_precision_quantize(
     logging.info("------------------- Pack -------------------")
 
     model_output_path = (f"{cache_dir}/packed/anyprec-({model_name})-w{parent_precision}_orig{seed_precision}"
-                         f"{f'-g{group_size}' if group_size != -1 else ''}"
-                         f"-{dataset}_s{num_examples}_blk{seq_len}")
+                         f"-gc{group_count}-{dataset}_s{num_examples}_blk{seq_len}")
 
     # check for non-empty directory
     if os.path.exists(model_output_path) and os.path.isdir(model_output_path) and os.listdir(model_output_path):
@@ -187,7 +184,7 @@ def any_precision_quantize(
         seed_precision=seed_precision,
         parent_precision=parent_precision,
         cpu_count=cpu_count,
-        group_size=group_size,
+        group_count=group_count,
     )
 
     logging.info("Packing complete.")

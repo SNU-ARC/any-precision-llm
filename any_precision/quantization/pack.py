@@ -120,13 +120,12 @@ def pack(
         output_model_path,
         seed_precision,
         parent_precision,
-        group_size=-1,
+        group_count=1,
         cpu_count=None
 ):
 
-    if group_size != -1:
-        raise NotImplementedError("Group sizes other than full-row group (group_size=-1) "
-                                  "are not supported yet for packing")
+    if group_count != 1:
+        raise NotImplementedError("Group counts other than 1 are not supported yet for packing")
 
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -162,7 +161,7 @@ def pack(
     anyprec_configs = {
         'seed_precision': seed_precision,
         'parent_precision': parent_precision,
-        'group_size': group_size,
+        'group_count': group_count,
         'arch_config': arch_config
     }
     config.anyprec = anyprec_configs
