@@ -111,6 +111,8 @@ for i, model_path in enumerate(total_tests_to_run):
 
     print()
 
+    del model  # clear memory
+
 
 print("---------------------- All Results ----------------------")
 # print new results as formatted json
