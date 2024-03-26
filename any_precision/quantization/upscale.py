@@ -352,6 +352,22 @@ def upscale(
         numba.set_num_threads(cpu_count)
 
     assert seed_precision <= parent_precision, "Parent precision should be equal or higher than seed precision"
+
+    if seed_precision == parent_precision:
+        # Nothing to do, just copy the seed to the parent
+        logging.info(f"Parent precision is the same as seed precision. Symlinking the seed to the parent...")
+        os.makedirs(parent_parameters_path, exist_ok=True)
+        os.makedirs(f"{parent_parameters_path}/lut_{seed_precision}", exist_ok=True)
+        os.makedirs(f"{parent_parameters_path}/weights", exist_ok=True)
+        for l in range(analyzer.num_layers):
+            # copy the seed LUTs using symlinks
+            os.symlink(os.path.abspath(f"{seed_parameters_path}/lut/l{l}.pt"),
+                       f"{parent_parameters_path}/lut_{seed_precision}/l{l}.pt")
+            # copy the seed weights using symlinks
+            os.symlink(os.path.abspath(f"{os.getcwd()}/{seed_parameters_path}/weights/l{l}.pt"),
+                       f"{parent_parameters_path}/weights/l{l}.pt")
+        return
+
     logging.info(f"Upscaling from {seed_precision} to {parent_precision}")
 
     logging.info("Loading original model weights...")
