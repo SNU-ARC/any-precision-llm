@@ -6,7 +6,7 @@ if __name__ == "__main__":
     parser.add_argument("model", type=str, help="The model to quantize")
     parser.add_argument("--seed_precision", type=int, help="The precision to quantize the seed to")
     parser.add_argument("--parent_precision", type=int, help="The precision to quantize the parent to")
-    parser.add_argument("--mode", type=str, default="upscale", help="The mode to run in")
+    parser.add_argument("--mode", type=str, default="pack", help="The mode to run in")
     parser.add_argument("--yaml_path", type=str, help="The path to the architecture config yaml file")
     parser.add_argument("--cache_dir", type=str, help="The directory to cache results in")
     parser.add_argument("--dataset", type=str, help="The dataset to use")
@@ -15,8 +15,6 @@ if __name__ == "__main__":
     parser.add_argument("--cpu_count", type=int, help="The number of CPUs to use for parallelization")
     parser.add_argument('--overwrite_gradients', action="store_true",
                         help="Whether to overwrite the gradients stored to disk")
-    parser.add_argument("--overwrite_seed", action="store_true",
-                        help="Whether to overwrite the seed model stored to disk")
     parser.add_argument("--overwrite_upscale", action="store_true",
                         help="Whether to overwrite the parent model stored to disk")
     parser.add_argument("--overwrite_pack", action="store_true",

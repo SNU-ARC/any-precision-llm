@@ -1,6 +1,3 @@
-# It is CRITICAL that the seed module is imported before any other module that uses numpy or torch
-# as other imports may cause issues with threadpoolctl on certain machines, leading to performance drops.
-from .seed import get_seed
 
 import os
 import os.path
@@ -10,7 +7,7 @@ import logging
 from .config import *
 from ..analyzer import get_analyzer
 from .gradients import get_gradients
-from .upscale import upscale
+from .seed_and_upscale import seed_and_upscale
 from .pack import pack
 
 # Disable parallelism in tokenizers to prevent warnings when forking in the seed generation step
@@ -24,30 +21,23 @@ def any_precision_quantize(
         model,
         seed_precision=DEFAULT_SEED_PRECISION,
         parent_precision=DEFAULT_PARENT_PRECISION,
-        mode='upscale',
+        mode='pack',
         yaml_path=None, cache_dir=DEFAULT_CACHE_DIR,
         dataset=DEFAULT_DATASET, seq_len=DEFAULT_SEQ_LEN, num_examples=DEFAULT_NUM_EXAMPLES,
         cpu_count=os.cpu_count(),
         overwrite_gradients=False,
-        overwrite_seed=False,
         overwrite_upscale=False,
         overwrite_pack=False,
         random_state=None,
         group_count=1,
 ):
-    assert mode in ['gradients', 'seed', 'upscale'], \
-        "mode must be one of 'gradients', 'seed', or 'upscale'. Use 'upscale' to run the entire pipeline."
+    assert mode in ['gradients', 'upscale', 'pack'], \
+        "mode must be one of 'gradients', 'upscale', or 'pack'. Use 'pack' to run the entire pipeline."
 
     if overwrite_gradients:
-        if not overwrite_seed:
-            logging.warning("Seed model needs to be recalculated if gradients are recalculated. "
-                            "Setting overwrite_seed to True.")
-            overwrite_seed = True
-
-    if overwrite_seed:
         if not overwrite_upscale:
-            logging.warning("Parent model needs to be recalculated if seed model is recalculated. "
-                            "Setting overwrite_upscale to True.")
+            logging.warning("Parent model needs to be recalculated if gradients are recalculated. "
+                            "Setting overwrite_seed to True.")
             overwrite_upscale = True
 
     if overwrite_upscale:
@@ -58,10 +48,10 @@ def any_precision_quantize(
 
     if mode == 'gradients':
         logging.info("Running: [Gradients]")
-    elif mode == 'seed':
-        logging.info("Running: [Gradients -> Seed]")
+    elif mode == 'Upscale':
+        logging.info("Running: [Gradients -> Upscale]")
     else:
-        logging.info("Running: [Gradients -> Seed -> Upscale]")
+        logging.info("Running: [Gradients -> Upscale -> Pack]")
 
     model_string = model if isinstance(model, str) else model.name_or_path
     model_name = model_string.split("/")[-1]
@@ -99,66 +89,40 @@ def any_precision_quantize(
     if mode == 'gradients':
         return
 
-    # ------------------- Seed -------------------
+    # ------------------- Seed & Upscale -------------------
 
-    logging.info("------------------- Seed -------------------")
+    logging.info("------------------- Seed & Upscale -------------------")
 
-    seed_cache_path = (f"{cache_dir}/seed/({model_name})-w{seed_precision}-gc{group_count}"
-                       f"-{dataset}_s{num_examples}_blk{seq_len}")
+    upscale_cache_path = (f"{cache_dir}/upscaled/({model_name})-w{parent_precision}_orig{seed_precision}-gc{group_count}"
+                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
-    # Calculate or load seed
+    # Calculate or load parent
     logging.info(f"Beginning {seed_precision}-bit seed model generation...")
     # Note that this saves the seed model to the cache path and must be loaded for the upscale step
-    if overwrite_seed and os.path.exists(seed_cache_path):
+    if overwrite_upscale and os.path.exists(upscale_cache_path):
         # if the user wants to recalculate the seed, delete the cached seed
-        logging.info(f"Detected cached seed at {seed_cache_path}. Will delete and recalculate.")
-        shutil.rmtree(seed_cache_path)
+        logging.info(f"Detected cached parent at {upscale_cache_path}. Will delete and recalculate.")
+        shutil.rmtree(upscale_cache_path)
 
     # this skips over existing layers in the cache, and doesn't overwrite them
-    get_seed(
+    seed_and_upscale(
         analyzer=analyzer,
         gradients=model_gradients,
-        bit_width=seed_precision,
-        output_folder=seed_cache_path,
+        output_folder=upscale_cache_path,
+        seed_precision=seed_precision,
+        parent_precision=parent_precision,
         cpu_count=cpu_count,
         random_state=random_state,
         group_count=group_count,
     )
-    logging.info("Seed calculation complete.")
 
-    if mode == 'seed':
+    if mode == 'upscale':
         return
-
-    # ------------------- Upscale -------------------
-
-    logging.info("------------------- Upscale -------------------")
-
-    parent_cache_path = (f"{cache_dir}/parent/({model_name})-w{parent_precision}_orig{seed_precision}-gc{group_count}"
-                         f"-{dataset}_s{num_examples}_blk{seq_len}")
-
-    # Calculate or load parent
-    logging.info(f"Beginning {parent_precision}-bit parent model generation...")
-    # Note that this saves the parent model to the cache path and must be loaded for the pack step
-    if overwrite_upscale and os.path.exists(parent_cache_path):
-        # if the user wants to recalculate the parent, delete the cached parent
-        logging.info(f"Detected cached parent at {parent_cache_path}. Will delete and recalculate.")
-        shutil.rmtree(parent_cache_path)
-
-    # this skips over existing layers in the cache, and doesn't overwrite them
-    upscale(
-        analyzer=analyzer,
-        seed_precision=seed_precision,
-        parent_precision=parent_precision,
-        seed_parameters_path=seed_cache_path,
-        parent_parameters_path=parent_cache_path,
-        gradients=model_gradients,
-        cpu_count=cpu_count,
-    )
 
     del model_gradients  # free up memory
     analyzer.drop_original_weights()  # drop the original weights to save memory
 
-    logging.info("Upscale complete.")
+    logging.info("Seed & Upscale complete.")
 
     # ------------------- Pack -------------------
     logging.info("------------------- Pack -------------------")
@@ -179,7 +143,7 @@ def any_precision_quantize(
 
     pack(
         analyzer=analyzer,
-        lut_path=parent_cache_path,
+        lut_path=upscale_cache_path,
         output_model_path=model_output_path,
         seed_precision=seed_precision,
         parent_precision=parent_precision,
