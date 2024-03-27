@@ -5,11 +5,7 @@ import numpy as np
 from tqdm import tqdm
 import numba
 from concurrent.futures import ThreadPoolExecutor
-
-
-@numba.njit(cache=True)
-def query_prefix_sum(arr, start, stop):
-    return arr[stop - 1] - arr[start - 1] if start > 0 else arr[stop - 1]
+from .utils import query_prefix_sum
 
 
 @numba.njit(cache=True)
