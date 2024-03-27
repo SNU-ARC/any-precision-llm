@@ -97,7 +97,7 @@ def any_precision_quantize(
                           f"-{dataset}_s{num_examples}_blk{seq_len}")
 
     # Calculate or load parent
-    logging.info(f"Beginning {seed_precision}-bit seed model generation...")
+    logging.info(f"Beginning {seed_precision}~{parent_precision}-bit Any-Precision Quantization...")
     # Note that this saves the seed model to the cache path and must be loaded for the upscale step
     if overwrite_upscale and os.path.exists(upscale_cache_path):
         # if the user wants to recalculate the seed, delete the cached seed
