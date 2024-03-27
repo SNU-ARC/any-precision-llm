@@ -47,15 +47,27 @@ parser.add_argument(
 def _upscale_group(orig_centroids, orig_labels, weights, sample_weight, seed_bit, parent_bit):
     luts_by_bit = [orig_centroids]
     labels = orig_labels
+
+    # sort by the weights
+    sorted_indices = np.argsort(weights)
+    weights = weights[sorted_indices]
+    sample_weight = sample_weight[sorted_indices]
+    labels = labels[sorted_indices]
+
+    # Run the upscale
     for i in range(seed_bit, parent_bit):
         centroids, labels = _increment_group(luts_by_bit[-1], labels, weights, sample_weight, i)
         luts_by_bit.append(centroids)
+
+    # Unsort the labels
+    labels = labels[np.argsort(sorted_indices)]
 
     return luts_by_bit, labels
 
 
 @numba.njit(cache=True)
 def _increment_group(orig_centroids, orig_labels, weights, sample_weight, seed_bit):
+    """WARNING: labels, weights and sample_weight should be sorted by weights in ascending order"""
     new_centroids = np.empty(2 ** (seed_bit + 1), dtype=np.float32)
     new_labels = np.empty_like(orig_labels)
 
@@ -97,6 +109,8 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     """An optimized kmeans for 1D data with 2 clusters.
     This function uses np.float32 instead of np.float16 for the centroids so that numba can compile it.
     Please cast the result back to np.float16 before saving it.
+
+    WARNING: X should be sorted in ascending order.
     """
     assert len(X) == len(sample_weight), "X and sample_weight should have the same length"
     # if there are no elements, return arrays of length 0
@@ -139,16 +153,14 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     # KMeans with 2 clusters on 1D data is equivalent to finding a division point.
     # The division point can be found by doing a binary search on the prefix sum.
 
-    # First we sort the data
-    sorted_indices = np.argsort(X)
-
     # Use fp64 to avoid precision loss in prefix sum subtraction
-    sorted_X = X[sorted_indices].astype(np.float64)
-    sorted_weights = sample_weight[sorted_indices].astype(np.float64)
+    sample_weight = sample_weight.astype(np.float64)
+    X = X.astype(np.float64)
 
-    weighted_X = sorted_X * sorted_weights
+    # Calculate the prefix sum of the weighted X and the sample weight
+    weighted_X = X * sample_weight
     weighted_X_prefix_sum = np.cumsum(weighted_X)
-    sample_weight_prefix_sum = np.cumsum(sorted_weights)
+    sample_weight_prefix_sum = np.cumsum(sample_weight)
 
     # We will do a search for the division point,
     # where we search for the optimum number of elements in the first cluster
@@ -175,8 +187,8 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
         right_center = (weighted_X_prefix_sum[-1] - weighted_X_prefix_sum[left_cluster_size - 1]) / right_weight_sum
 
         new_division_point = (left_center + right_center) / 2
-        if X[sorted_indices[left_cluster_size - 1]] <= new_division_point:
-            if new_division_point <= X[sorted_indices[left_cluster_size]]:
+        if X[left_cluster_size - 1] <= new_division_point:
+            if new_division_point <= X[left_cluster_size]:
                 break
             else:
                 floor = left_cluster_size
@@ -196,8 +208,8 @@ def _faster_1d_two_cluster_kmeans(X, sample_weight):
     centroids[0] = left_center
     centroids[1] = right_center
 
-    labels[sorted_indices[:left_cluster_size]] = 0
-    labels[sorted_indices[left_cluster_size:]] = 1
+    labels[:left_cluster_size] = 0
+    labels[left_cluster_size:] = 1
 
     return centroids, labels
 
