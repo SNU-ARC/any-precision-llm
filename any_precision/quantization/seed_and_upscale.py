@@ -220,11 +220,9 @@ def seed_and_upscale(
         logging.info("All layers have already been processed. Exiting...")
         return
 
-    model_weights = analyzer.get_model_weights()
-
     logging.info(f"Quantizing layers {layers_to_process}")
 
-    layer_loader = get_layer_loader(model_weights, gradients, analyzer.module_names)
+    layer_loader = get_layer_loader(analyzer.model_weights, gradients, analyzer.module_names)
     layer_saver = get_saver(output_folder, seed_precision, parent_precision, analyzer.module_names)
 
     if pipelined_io:
