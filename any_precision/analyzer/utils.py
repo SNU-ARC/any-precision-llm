@@ -2,7 +2,7 @@ import torch
 from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer, PreTrainedTokenizerBase
 
 
-def load_model(model_str_or_model, dtype=torch.bfloat16):
+def load_model(model_str_or_model, dtype=torch.float16):
     """Returns a model from a string or a model object. If a string is passed, it will be loaded from the HuggingFace"""
     if isinstance(model_str_or_model, str):
         model = AutoModelForCausalLM.from_pretrained(
