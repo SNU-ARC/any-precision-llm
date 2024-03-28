@@ -126,12 +126,12 @@ def set_np_seed_njit(random_state):
         np.random.seed(random_state)
 
 
-def get_layer_loader(model_weights, gradients, module_names):
+def get_layer_loader(analyzer, gradients):
     def layer_loader(l):
         # Convert from torch.bf16 to np.fp32 for numba processing
         # Only converts one layer at a time to avoid excessive memory usage
-        gradient_layer = [gradients[l][name].float().numpy() for name in module_names]
-        model_layer = [model_weights[l][name].float().numpy() for name in module_names]
+        gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
+        model_layer = [analyzer.get_layer_weights(l)[name].float().numpy() for name in analyzer.module_names]
         return gradient_layer, model_layer
 
     return layer_loader
@@ -222,7 +222,7 @@ def seed_and_upscale(
 
     logging.info(f"Quantizing layers {layers_to_process}")
 
-    layer_loader = get_layer_loader(analyzer.model_weights, gradients, analyzer.module_names)
+    layer_loader = get_layer_loader(analyzer, gradients)
     layer_saver = get_saver(output_folder, seed_precision, parent_precision, analyzer.module_names)
 
     if pipelined_io:

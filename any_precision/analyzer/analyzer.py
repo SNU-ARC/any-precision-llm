@@ -61,7 +61,7 @@ class ModelAnalyzer:
         self.tokenizer = None
         if include_tokenizer:
             self.tokenizer = load_tokenizer(model)
-        self._model_weights = None
+        self._model_weights = {}
 
     @classmethod
     def from_arch_config(cls, model: AutoModelForCausalLM, quant_config: dict, include_tokenizer=False):
@@ -100,23 +100,19 @@ class ModelAnalyzer:
             modules[module_name] = module
         return modules
 
-    @property
-    def model_weights(self):
+    def get_layer_weights(self, layer_idx):
         """Return the relevant weights of the model."""
         if self.dropped_original_weights:
             raise ValueError("Original weights have been dropped")
-        if self._model_weights is not None:
-            return self._model_weights
+        if layer_idx in self._model_weights:
+            return self._model_weights[layer_idx]
         layers = self.get_layers()
-        model_layers = []
-        for layer in layers:
-            layer_data = {}
-            modules = self.get_modules(layer)
-            for name, module in modules.items():
-                layer_data[name] = module.weight.data.cpu()
-            model_layers.append(layer_data)
-        self._model_weights = model_layers
-        return model_layers
+        layer_data = {}
+        modules = self.get_modules(layers[layer_idx])
+        for name, module in modules.items():
+            layer_data[name] = module.weight.data.cpu()
+        self._model_weights[layer_idx] = layer_data
+        return layer_data
 
     def get_model(self):
         """Return the model."""
@@ -136,7 +132,7 @@ class ModelAnalyzer:
                 self.state_dict.pop(key)
 
         self.model = None
-        self._model_weights = None
+        self._model_weights.clear()
         self.dropped_original_weights = True
 
 
