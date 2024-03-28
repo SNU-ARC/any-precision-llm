@@ -22,7 +22,10 @@ if __name__ == "__main__":
     parser.add_argument("--random_state", type=int,
                         help="The random state to use for reproducibility\n"
                              "[WARNING] May not be reproducible across different machines")
-    parser.add_argument("--group_count", type=int, help="Group count per row - the default is 1")
+    parser.add_argument("--group_count", type=int,
+                        help="Experimental: Group count per row - the default is 1")
+    parser.add_argument("--dns", action="store_true",
+                        help="REALLY Experimental: Whether to run Dense & Sparse quantization")
 
     args = parser.parse_args()
 

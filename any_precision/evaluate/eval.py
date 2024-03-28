@@ -15,12 +15,24 @@ def fake_pack(parent_path, verbose=True):
     import re
     logprint(verbose, f"Simulating Any-Precision model from non-packed parent model at {parent_path}")
 
-    for file in os.listdir('./cache/fake_packed'):
-        if parent_path.split("/")[-1] in file:
-            logprint(verbose, f"Faked packed model already exists for {parent_path.split('/')[-1]}. Skipping...")
-            return
+    if os.path.isdir('./cache/fake_packed'):
+        for file in os.listdir('./cache/fake_packed'):
+            if parent_path.split("/")[-1] in file:
+                logprint(verbose, f"Faked packed model already exists for {parent_path.split('/')[-1]}. Skipping...")
+                return
 
-    original_model_repo = base_model_name_to_hf_repo_name(name_splitter(parent_path)[0][1:-1])
+    # Check if D&S quantization is used
+    dns = parent_path.split("/")[-1].startswith("dns")
+
+    fields = name_splitter(parent_path)
+    # get the field wrapped in ()
+    for field in fields:
+        if field.startswith('(') and field.endswith(')'):
+            base_model_name = field[1:-1]
+            break
+    else:
+        raise ValueError(f"Could not find base model name in {parent_path}")
+    original_model_repo = base_model_name_to_hf_repo_name(base_model_name)
     tokenizer = AutoTokenizer.from_pretrained(original_model_repo)
 
     logprint(verbose, f"Loading original model from {original_model_repo}")
@@ -35,13 +47,15 @@ def fake_pack(parent_path, verbose=True):
     qweights = [None] * layer_count
     for file in tqdm(files, desc="Loading qweights", disable=not verbose):
         # filenames should be 'l0.pt'
-        layer = int(re.match(r'l(\d+).pt', file).group(1))
-        qweights[layer] = torch.load(parent_path + '/weights/' + file)
+        l = int(re.match(r'l(\d+).pt', file).group(1))
+        qweights[l] = torch.load(parent_path + '/weights/' + file)
 
     logprint(verbose, f"Loading LUTs from {parent_path}")
     # get a list of directories in the model_path
     dirs = os.listdir(parent_path)
     dirs.remove('weights')
+    if dns:
+        dirs.remove('sparse')
     luts = {}
     # Only the LUT directories should remain
     for lut_dir in dirs:
@@ -50,10 +64,18 @@ def fake_pack(parent_path, verbose=True):
         for file in tqdm(os.listdir(parent_path + '/' + lut_dir), desc=f"Loading {bit}-bit LUTs",
                          disable=not verbose):
             # example: l0.pt
-            layer = int(re.match(r'l(\d+).pt', file).group(1))
+            l = int(re.match(r'l(\d+).pt', file).group(1))
             if bit not in luts:
                 luts[bit] = [None] * layer_count
-            luts[bit][layer] = torch.load(parent_path + '/' + lut_dir + '/' + file)
+            luts[bit][l] = torch.load(parent_path + '/' + lut_dir + '/' + file)
+
+    # Load D&S sparse weights if they exist
+    sparse_model_weights = []
+    if dns:
+        logprint(verbose, f"D&S quantization detected. Loading sparse weights...")
+        for l in range(layer_count):
+            sparse_weights = torch.load(parent_path + f'/sparse/l{l}.pt')
+            sparse_model_weights.append(sparse_weights)
 
     logprint(verbose, f"Replacing qweights with centroids from LUTs...")
 
@@ -61,11 +83,11 @@ def fake_pack(parent_path, verbose=True):
 
     for bit in luts:
         state_dict = model.state_dict()
-        for layer in tqdm(range(layer_count), desc=f"Replacing qweights with {bit}-bit centroids",):
-            qweight = qweights[layer]
-            lut = luts[bit][layer]
+        for l in tqdm(range(layer_count), desc=f"Replacing qweights with {bit}-bit centroids",):
+            qweight = qweights[l]
+            lut = luts[bit][l]
             for module_name in qweight:
-                full_param_name_suffix = f".{layer}.{module_name}.weight"
+                full_param_name_suffix = f".{l}.{module_name}.weight"
                 matching_keys = [key for key in state_dict.keys() if key.endswith(full_param_name_suffix)]
                 assert len(matching_keys) == 1, f"Expected 1 matching key, got {len(matching_keys)}"
                 matching_key = matching_keys[0]
@@ -76,6 +98,7 @@ def fake_pack(parent_path, verbose=True):
                 for row_idx in range(module_qweight.shape[0]):
                     row_weights = []
                     for group_idx in range(module_qweight.shape[1]):
+                        # fetch weights from the LUT
                         group_weights = module_lut[row_idx][group_idx][
                             module_qweight[row_idx][group_idx] >> (max_bit - bit)]
                         row_weights.append(torch.from_numpy(group_weights))
@@ -83,6 +106,13 @@ def fake_pack(parent_path, verbose=True):
                     row_weights = torch.cat(row_weights, dim=0)
                     module_weights.append(row_weights)
                 module_weights = torch.stack(module_weights)
+                # Add the sparse weights if they exist
+                if dns:
+                    sparse_weights = sparse_model_weights[l][module_name]
+                    # get the indices of the sparse weights
+                    sparse_indices = sparse_weights.indices()
+                    # replace the weights with the sparse weights
+                    module_weights[sparse_indices[0], sparse_indices[1]] = sparse_weights.values()
                 state_dict[matching_key] = module_weights
 
         save_path = f'./cache/fake_packed/fake_anyprec-p{bit}-{parent_path.split("/")[-1]}'

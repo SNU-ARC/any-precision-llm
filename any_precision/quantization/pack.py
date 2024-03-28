@@ -121,11 +121,15 @@ def pack(
         seed_precision,
         parent_precision,
         group_count=1,
+        dns=False,
         cpu_count=None
 ):
 
     if group_count != 1:
         raise NotImplementedError("Group counts other than 1 are not supported yet for packing")
+
+    if dns:
+        raise NotImplementedError("D&S packing is not supported yet")
 
     if cpu_count is None:
         cpu_count = os.cpu_count()

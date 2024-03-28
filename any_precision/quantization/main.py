@@ -9,6 +9,8 @@ from ..analyzer import get_analyzer
 from .gradients import get_gradients
 from .seed_and_upscale import seed_and_upscale
 from .pack import pack
+from .dense_and_sparse import remove_outliers
+import torch
 
 # Disable parallelism in tokenizers to prevent warnings when forking in the seed generation step
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -30,6 +32,9 @@ def any_precision_quantize(
         overwrite_pack=False,
         random_state=None,
         group_count=1,
+        dns=False,
+        sensitivity_outlier_percent=0.05,
+        threshold_outlier_percent=0.40
 ):
     assert mode in ['gradients', 'upscale', 'pack'], \
         "mode must be one of 'gradients', 'upscale', or 'pack'. Use 'pack' to run the entire pipeline."
@@ -63,11 +68,22 @@ def any_precision_quantize(
 
     analyzer = get_analyzer(model, yaml_path=yaml_path, include_tokenizer=True)
 
+    # ------------------- Set cache paths -------------------
+
+    gradients_cache_path = (f"{cache_dir}/gradients/"
+                            f"({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt")
+
+    upscale_cache_path = (f"{cache_dir}/upscaled/"
+                          f"{'dns' if dns else ''}-({model_name})-w{parent_precision}_orig{seed_precision}"
+                          f"-gc{group_count}-{dataset}_s{num_examples}_blk{seq_len}")
+
+    model_output_path = (f"{cache_dir}/packed/"
+                         f"anyprec-({model_name})-w{parent_precision}_orig{seed_precision}"
+                         f"-gc{group_count}-{dataset}_s{num_examples}_blk{seq_len}")
+
     # ------------------- Gradients -------------------
 
     logging.info("------------------- Gradients -------------------")
-
-    gradients_cache_path = f"{cache_dir}/gradients/({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt"
 
     logging.info("Beginning gradient calculation...")
     # Calculate or load gradients
@@ -89,12 +105,27 @@ def any_precision_quantize(
     if mode == 'gradients':
         return
 
+    # ------------------- Outliers -------------------
+    logging.info("------------------- Outliers -------------------")
+
+    if dns:
+        sparse_model_weights = remove_outliers(
+            analyzer=analyzer,
+            gradients=model_gradients,
+            sensitivity_outlier_percent=sensitivity_outlier_percent,
+            threshold_outlier_percent=threshold_outlier_percent,
+        )
+
+        sparse_path = f"{upscale_cache_path}/sparse"
+        os.makedirs(sparse_path, exist_ok=True)
+        for l in range(analyzer.num_layers):
+            torch.save(sparse_model_weights[l], f"{sparse_path}/l{l}.pt")
+
+        del sparse_model_weights
+
     # ------------------- Seed & Upscale -------------------
 
     logging.info("------------------- Seed & Upscale -------------------")
-
-    upscale_cache_path = (f"{cache_dir}/upscaled/({model_name})-w{parent_precision}_orig{seed_precision}-gc{group_count}"
-                          f"-{dataset}_s{num_examples}_blk{seq_len}")
 
     # Calculate or load parent
     logging.info(f"Beginning {seed_precision}~{parent_precision}-bit Any-Precision Quantization...")
@@ -127,9 +158,6 @@ def any_precision_quantize(
     # ------------------- Pack -------------------
     logging.info("------------------- Pack -------------------")
 
-    model_output_path = (f"{cache_dir}/packed/anyprec-({model_name})-w{parent_precision}_orig{seed_precision}"
-                         f"-gc{group_count}-{dataset}_s{num_examples}_blk{seq_len}")
-
     # check for non-empty directory
     if os.path.exists(model_output_path) and os.path.isdir(model_output_path) and os.listdir(model_output_path):
         if overwrite_pack:
@@ -149,6 +177,7 @@ def any_precision_quantize(
         parent_precision=parent_precision,
         cpu_count=cpu_count,
         group_count=group_count,
+        dns=dns,
     )
 
     logging.info("Packing complete.")
