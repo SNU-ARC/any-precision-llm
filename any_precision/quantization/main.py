@@ -74,7 +74,7 @@ def any_precision_quantize(
                             f"({model_name})-{dataset}_s{num_examples}_blk{seq_len}.pt")
 
     upscale_cache_path = (f"{cache_dir}/upscaled/"
-                          f"{'dns' if dns else ''}-({model_name})-w{parent_precision}_orig{seed_precision}"
+                          f"{'dns-' if dns else ''}({model_name})-w{parent_precision}_orig{seed_precision}"
                           f"-gc{group_count}-{dataset}_s{num_examples}_blk{seq_len}")
 
     model_output_path = (f"{cache_dir}/packed/"
