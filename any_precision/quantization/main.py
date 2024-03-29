@@ -105,10 +105,10 @@ def any_precision_quantize(
     if mode == 'gradients':
         return
 
-    # ------------------- Outliers -------------------
-    logging.info("------------------- Outliers -------------------")
+    # ------------------- Dense & Sparse -------------------
 
     if dns:
+        logging.info("------------------- Dense & Sparse -------------------")
         sparse_model_weights = remove_outliers(
             analyzer=analyzer,
             gradients=model_gradients,
