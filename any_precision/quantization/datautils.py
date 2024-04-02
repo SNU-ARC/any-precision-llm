@@ -56,7 +56,7 @@ def sample_and_tokenize(texts, tokenizer, seq_len, num_samples, seed=0):
     selected_indices = set()
 
     samples = []
-    for _ in range(num_samples):
+    while len(samples) < num_samples:
         idx = random.randint(0, len(texts) - 1)
         if idx in selected_indices:  # we don't want to sample the same text twice
             continue
