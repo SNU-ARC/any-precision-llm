@@ -12,7 +12,8 @@ def get_gradients(
         dataset=DEFAULT_DATASET,
         seq_len=DEFAULT_SEQ_LEN,
         num_examples=DEFAULT_NUM_EXAMPLES,
-        save_path=None
+        save_path=None,
+        random_state=None,
 ):
     if save_path is not None and os.path.isfile(save_path):
         logging.info(f"Gradients already calculated and saved at {save_path}.")
@@ -20,12 +21,11 @@ def get_gradients(
         return torch.load(save_path)
     logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
                  f"{num_examples} examples...")
-    logging.info(f"Fetching {dataset} dataset...")
 
     model = analyzer.model
     tokenizer = analyzer.tokenizer
 
-    input_tokens = get_tokens(dataset, 'train', tokenizer, seq_len, num_examples)
+    input_tokens = get_tokens(dataset, 'train', tokenizer, seq_len, num_examples, seed=random_state)
 
     if analyzer is None:
         analyzer = get_analyzer(model)

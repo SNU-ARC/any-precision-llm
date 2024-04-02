@@ -47,11 +47,12 @@ def get_pileval(split):
     return data['text']
 
 
-def sample_and_tokenize(texts, tokenizer, seq_len, num_samples, seed=0):
+def sample_and_tokenize(texts, tokenizer, seq_len, num_samples, seed=None):
     assert num_samples <= len(texts), \
         f"num_samples({num_samples}) should be less than or equal to the number of texts({len(texts)})"
-    random.seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
 
     selected_indices = set()
 
@@ -87,6 +88,8 @@ def get_dataset(dataset_name, split):
         raise ValueError(f"Unknown dataset {dataset_name}")
 
 
-def get_tokens(dataset_name, split, tokenizer, seq_len, num_samples, seed=0):
+def get_tokens(dataset_name, split, tokenizer, seq_len, num_samples, seed=None):
+    logging.info(f"Fetching dataset: {dataset_name}")
     texts = get_dataset(dataset_name, split)
+    logging.info(f"Sampling {num_samples} samples of length {seq_len} from {dataset_name}...")
     return sample_and_tokenize(texts, tokenizer, seq_len, num_samples, seed)

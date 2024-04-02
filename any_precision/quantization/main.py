@@ -99,6 +99,7 @@ def any_precision_quantize(
         seq_len=seq_len,
         num_examples=num_examples,
         save_path=gradients_cache_path,
+        random_state=random_state,
     )
     logging.info("Gradient calculation complete.")
 
