@@ -50,9 +50,10 @@ def get_pileval(split):
 def sample_and_tokenize(texts, tokenizer, seq_len, num_samples, seed=None):
     assert num_samples <= len(texts), \
         f"num_samples({num_samples}) should be less than or equal to the number of texts({len(texts)})"
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+
+    # this works for None too, effectively setting random seeds
+    random.seed(seed)
+    np.random.seed(seed)
 
     selected_indices = set()
 
