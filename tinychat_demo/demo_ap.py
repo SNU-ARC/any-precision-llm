@@ -1,4 +1,4 @@
-from any_precision.modules import AutoAPLoader
+from any_precision.modules import AnyPrecisionForCausalLM
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 import time
@@ -44,7 +44,7 @@ gen_params = AttributeDict(
 # Logging with time sans date, level name, and message
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
-def stream_output(output_stream):
+def stream_output(output_stream, precision):
     print(f"ASSISTANT: ", end="", flush=True)
     pre = 0
     for outputs in output_stream:
@@ -66,7 +66,7 @@ def stream_output(output_stream):
             context_tokens + generation_tokens
         )
         print("=" * 50)
-        print("Speed of Inference")
+        print(f"Speed of Inference: {precision}-bit")
         print("-" * 50)
         print(
             f"Generation Stage : {np.average(generation_time_list) * 1000:.2f} ms/token"
@@ -75,10 +75,10 @@ def stream_output(output_stream):
     return " ".join(output_text)
 
 if __name__ == '__main__':
-    model_path = '../cache/packed/anyprec-(opt-1.3b)-w8_orig3-c4_s100_blk512'
+    model_path = '../cache/packed/anyprec-(Llama-2-7b-hf)-w8_orig3-gc1-c4_s100_blk512'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoAPLoader.from_quantized(model_path, precisions=[3, 4, 5, 6, 7, 8])
+    model = AnyPrecisionForCausalLM.from_quantized(model_path, precisions=[3, 4, 5, 6, 7, 8])
     model = model.eval().cuda()
 
     model_type = 'opt'
@@ -86,8 +86,8 @@ if __name__ == '__main__':
     stop_token_ids = get_stop_token_ids(model_type, model_path)
 
     count = 0
-    model.set_precision(4)
-    while True:
+    for precision in range(3, 9):
+        model.set_precision(precision)
         input_prompt = "Large language models are "
         if input_prompt == "":
             print("EXIT...")
@@ -101,7 +101,6 @@ if __name__ == '__main__':
             device='cuda',
             stop_token_ids=stop_token_ids,
         )
-        outputs = stream_output(output_stream)
+        outputs = stream_output(output_stream, precision)
         count += 1
-        break
 

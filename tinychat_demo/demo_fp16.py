@@ -1,4 +1,3 @@
-from any_precision.modules import AutoAPLoader
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 import time
@@ -75,13 +74,13 @@ def stream_output(output_stream):
     return " ".join(output_text)
 
 if __name__ == '__main__':
-    model_path = 'facebook/opt-1.3b'
+    model_path = 'meta-llama/Llama-2-7b-hf'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16)
     model = model.eval().cuda()
 
-    model_type = 'opt'
+    model_type = 'llama'
     model_prompter = get_prompter(model_type, model_path, empty_prompt=True)
     stop_token_ids = get_stop_token_ids(model_type, model_path)
 
