@@ -122,7 +122,11 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
 def set_np_seed_njit(random_state):
     """Set the seed for numpy random number generator.
     Must be used in a numba.jit function."""
-    if random_state is not None:  # Only integer arguments allowed for np.random.seed in Numba
+    if random_state is not None:  
+        # Only integer arguments allowed for np.random.seed in Numba.
+        # A random_state of None should reset the random generator, but since we can't do so explicitly,
+        # I'm counting on the multi-thread environment of Numba to effectively reset the generator to a
+        # random seed after a possible seed being set in previous code.
         np.random.seed(random_state)
 
 
