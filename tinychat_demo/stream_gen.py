@@ -70,7 +70,7 @@ def StreamGenerator(
         else:
             inputs = torch.as_tensor([[token]], device=device)
 
-        if (
+        if ( True or  # Added by syphon to force logic, start_pos not working with Llama models
             "llama" not in model.__class__.__name__.lower()
             and "mpt" not in model.__class__.__name__.lower()
             and "falcon" not in model.__class__.__name__.lower()

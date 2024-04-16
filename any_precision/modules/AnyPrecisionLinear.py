@@ -70,7 +70,7 @@ class AnyPrecisionLinear(nn.Module):
 
     def set_precision(self, precision):
         if precision not in self.precisions:
-            raise RuntimeError('Ensure that w_bits are contained within the supported_bits.')
+            raise RuntimeError(f"{self.precisions}-bit precisions are supported but {precision}-bit was specified.")
 
         self.precision = precision
 

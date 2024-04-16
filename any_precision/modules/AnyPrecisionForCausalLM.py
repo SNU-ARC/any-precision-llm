@@ -86,12 +86,10 @@ class AnyPrecisionForCausalLM(nn.Module):
         self.prune_precisions()
 
     def forward(self, *args, **kwargs):
+        prev_precision = self.precision
         if 'precision' in kwargs:
-            prev_precision = self.precision
             precision = kwargs.pop('precision')
             self.set_precision(precision)
-        else:
-            prev_precision = self.precision
 
         results = self.model.forward(*args, **kwargs)
 

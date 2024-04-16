@@ -78,15 +78,15 @@ if __name__ == '__main__':
     model_path = '../cache/packed/anyprec-(Llama-2-7b-hf)-w8_orig3-gc1-c4_s100_blk512'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AnyPrecisionForCausalLM.from_quantized(model_path, precisions=[3, 4, 5, 6, 7, 8])
+    model = AnyPrecisionForCausalLM.from_quantized(model_path)
     model = model.eval().cuda()
 
-    model_type = 'opt'
+    model_type = 'llama'
     model_prompter = get_prompter(model_type, model_path, empty_prompt=True)
     stop_token_ids = get_stop_token_ids(model_type, model_path)
 
     count = 0
-    for precision in range(3, 9):
+    for precision in model.precisions:
         model.set_precision(precision)
         input_prompt = "Large language models are "
         if input_prompt == "":
