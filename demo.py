@@ -1,3 +1,4 @@
+import torch
 from any_precision.modules import AnyPrecisionForCausalLM
 from transformers import AutoTokenizer, TextStreamer
 import logging
@@ -22,9 +23,11 @@ if __name__ == '__main__':
 
     for precision in model.precisions:
         print(f"=============== generation with {precision}-bit precision ===============")
+        torch.cuda.synchronize()
         start_time = time.time()
-        output = model.generate(input_ids, precision=precision, max_length=100, pad_token_id=tokenizer.eos_token_id,
+        output = model.generate(input_ids, precision=precision, max_length=128, pad_token_id=tokenizer.eos_token_id,
                                 streamer=streamer)
+        torch.cuda.synchronize()
         end_time = time.time()
 
         # Calculate generation speed
