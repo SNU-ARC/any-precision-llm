@@ -21,7 +21,8 @@ if __name__ == '__main__':
     print("~~~~~~~ Warming up CUDA cache ~~~~~~~")
     input_context = "Models can run slow on first run because"
     input_ids = tokenizer.encode(input_context, return_tensors="pt").cuda()
-    output = model.generate(input_ids, precision=3, max_length=64, pad_token_id=tokenizer.eos_token_id,
+    output = model.generate(input_ids, precision=min(model.precisions),
+                            max_length=32, pad_token_id=tokenizer.eos_token_id,
                             streamer=streamer)
     print("~~~~~~~ Warm up complete ~~~~~~~\n")
 
@@ -40,7 +41,7 @@ if __name__ == '__main__':
         end_time = time.time()
 
         # Calculate generation speed
-        token_count = len(output[0])
+        token_count = len(output[0]) - len(input_ids[0])
         tokens_per_second = token_count / (end_time - start_time)
         ms_per_token = 1 / tokens_per_second * 1000
 
