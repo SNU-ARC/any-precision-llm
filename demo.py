@@ -13,7 +13,7 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     streamer = TextStreamer(tokenizer)
 
-    model = AnyPrecisionForCausalLM.from_quantized(model_path, precisions=[3, 4, 5, 6])
+    model = AnyPrecisionForCausalLM.from_quantized(model_path)
     model = model.eval().cuda()
 
     input_context = "Large Language Models are"
@@ -22,10 +22,10 @@ if __name__ == '__main__':
     for precision in model.precisions:
         print(f"=============== generation with {precision}-bit precision ===============")
         start_time = time.time()
-        output = model.generate(input_ids, precision=precision, max_length=64, pad_token_id=tokenizer.eos_token_id,
+        output = model.generate(input_ids, precision=precision, max_length=100, pad_token_id=tokenizer.eos_token_id,
                                 streamer=streamer)
         end_time = time.time()
         # print the generation speed
         token_count = len(output[0])
-        print(f"[[ Generation speed: {token_count / (end_time - start_time):.2f} tokens per second ]")
+        print(f"[[ Generation speed: {token_count / (end_time - start_time):.1f} tokens per second ]")
         print(f"[[ Latency per token: {(end_time - start_time) / token_count * 1000:.2f} ms ]]")

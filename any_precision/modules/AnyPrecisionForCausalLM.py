@@ -142,7 +142,7 @@ class AnyPrecisionForCausalLM(nn.Module):
         # Get blocks of model
         layers = self.analyzer.get_layers()
 
-        for layer in tqdm(layers, desc="Replacing layers..."):
+        for layer in tqdm(layers, desc="Loading AP Layers"):
             # Get every linear layer in a block
             named_linears = self.analyzer.get_modules(layer)
 

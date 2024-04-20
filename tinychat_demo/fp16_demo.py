@@ -74,7 +74,7 @@ def stream_output(output_stream):
     return " ".join(output_text)
 
 if __name__ == '__main__':
-    model_path = 'meta-llama/Llama-2-7b-hf'
+    model_path = 'facebook/opt-1.3b'
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16)

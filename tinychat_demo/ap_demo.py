@@ -1,4 +1,4 @@
-from any_precision.modules import AnyPrecisionForCausalLM
+from any_precision.modules import AnyPrecisionForCausalLM, AnyPrecisionLinear
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import logging
 import time
@@ -9,7 +9,6 @@ from attributedict.collections import AttributeDict
 
 from prompt_templates import get_prompter, get_stop_token_ids
 from stream_gen import StreamGenerator
-
 
 gen_params = AttributeDict(
     [
@@ -44,6 +43,7 @@ gen_params = AttributeDict(
 # Logging with time sans date, level name, and message
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
+
 def stream_output(output_stream, precision):
     print(f"ASSISTANT: ", end="", flush=True)
     pre = 0
@@ -63,7 +63,7 @@ def stream_output(output_stream, precision):
         generation_time_list = timing["generation_time_list"]
         generation_tokens = len(generation_time_list)
         average_speed = (context_time + np.sum(generation_time_list)) / (
-            context_tokens + generation_tokens
+                context_tokens + generation_tokens
         )
         print("=" * 50)
         print(f"Speed of Inference: {precision}-bit")
@@ -73,6 +73,7 @@ def stream_output(output_stream, precision):
         )
         print("=" * 50)
     return " ".join(output_text)
+
 
 if __name__ == '__main__':
     model_path = '../cache/packed/anyprec-(Llama-2-7b-hf)-w8_orig3-gc1-c4_s100_blk512'
@@ -103,4 +104,3 @@ if __name__ == '__main__':
         )
         outputs = stream_output(output_stream, precision)
         count += 1
-
