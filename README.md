@@ -76,7 +76,7 @@ but we do not guarantee the correctness of the quantization.
 - You need free space of approximately 2x the fp16 model size in RAM, VRAM, and disk to quantize the model.
 For Llama 2 7B, this is approximately 28 GB.  
 - The quantization process utilizes both CPU and GPU resources. As the main quantization process is CPU-bound,
-use a machine with a powerful multicore performance for faster quantization. However, our quantization pipeline is
+use a machine with powerful multicore performance for faster quantization. However, our quantization pipeline is
 highly optimized, and Llama 2 7B can be quantized in under 2 minutes on an i9-13900K machine.
 On lower-end machines this will be a few times slower.
 
