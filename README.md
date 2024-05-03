@@ -70,11 +70,12 @@ All steps are performed automatically.
 A `cache` directory is created to store both intermediate files and the final quantized model.  
 The final quantized model can be found under `cache/packed`.
 
-**Note**: We have tested the quantization on Llama, OPT and Mistral models. Other models can be automatically quantized,
+**Notes**:
+- We have tested the quantization on Llama, OPT and Mistral models. Other models can be automatically quantized,
 but we do not guarantee the correctness of the quantization.  
-**Note**: You need free space of approximately 2x the fp16 model size in RAM, VRAM, and disk to quantize the model.
+- You need free space of approximately 2x the fp16 model size in RAM, VRAM, and disk to quantize the model.
 For Llama 2 7B, this is approximately 28 GB.  
-**Note**: The quantization process utilizes both CPU and GPU resources. As the main quantization process is CPU-bound,
+- The quantization process utilizes both CPU and GPU resources. As the main quantization process is CPU-bound,
 use a machine with a powerful multicore performance for faster quantization. However, our quantization pipeline is
 highly optimized, and Llama 2 7B can be quantized in under 2 minutes on an i9-13900K machine.
 On lower-end machines this will be a few times slower.
