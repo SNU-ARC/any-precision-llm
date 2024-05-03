@@ -104,7 +104,7 @@ On lower-end machines this will be a few times slower.
 - `--random_state`: The random state to use for reproducibility. When not set, the random state is not fixed. Use an
   integer.
 
-##### Flags
+#### Flags
 
 - `--overwrite_gradients`: Whether to overwrite the gradients stored to disk. When not set, the gradients are
   loaded from disk if available.
@@ -119,7 +119,7 @@ On lower-end machines this will be a few times slower.
 python quantize.py meta-llama/Llama-2-7b-chat-hf
 ```
 
-#### Supporting Different Models
+### Supporting Different Models
 
 Our quantization pipeline is designed to support any model that can be loaded from the Hugging Face repository,
 by automatically detecting the linear layers for quantization. However, for better reproducibility,
