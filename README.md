@@ -22,15 +22,13 @@ Illustration of incremental upscaling scheme
 Illustration of specialized software engine for any-precision LLM
 </div>
 
-## How to Use Any-Precision LLM
-
-### Prerequisites
+## Prerequisites
 
 - Python 3.11
 - CUDA Toolkit 12 or higher
 - gcc-9 or higher
 
-### Setup
+## Setup
 
 1. Clone this repository.
 2. Install the required Python packages.  
@@ -48,7 +46,7 @@ Illustration of specialized software engine for any-precision LLM
    You will need to have CUDA toolkit 12 or higher installed on your machine to build the CUDA kernels. You will also
    need gcc-9 or higher.
 
-### Quantization
+## Quantization
 
 To quantize a model to any-precision, run `quantize.py` with relevant arguments:
 
@@ -80,12 +78,12 @@ use a machine with powerful multicore performance for faster quantization. Howev
 highly optimized, and Llama 2 7B can be quantized in under 2 minutes on an i9-13900K machine.
 On lower-end machines this will be a few times slower.
 
-#### Required Argument
+### Required Argument
 
 - `model`: The model to quantize. Should be a Hugging Face repository, or a local path to a model.
   e.g. `meta-llama/Llama-2-7b-chat-hf`.
 
-#### Optional Arguments
+### Optional Arguments
 
 - `--seed_precision`: The seed model precision. Default is 3.
 - `--parent_precision`: The parent model precision. Default is 8.
@@ -104,7 +102,7 @@ On lower-end machines this will be a few times slower.
 - `--random_state`: The random state to use for reproducibility. When not set, the random state is not fixed. Use an
   integer.
 
-#### Flags
+### Flags
 
 - `--overwrite_gradients`: Whether to overwrite the gradients stored to disk. When not set, the gradients are
   loaded from disk if available.
@@ -113,13 +111,13 @@ On lower-end machines this will be a few times slower.
 - `--overwrite_pack`: Whether to overwrite the packed model stored to disk. When not set, the packed model will not be
   overwritten if it already exists.
 
-#### Example Command
+### Example Command
 
 ```bash
 python quantize.py meta-llama/Llama-2-7b-chat-hf
 ```
 
-### Supporting Different Models
+## Supporting Different Models
 
 Our quantization pipeline is designed to support any model that can be loaded from the Hugging Face repository,
 by automatically detecting the linear layers for quantization. However, for better reproducibility,
@@ -156,7 +154,7 @@ If you wish to experiment with different model types, you can create your own YA
 or specify the `yaml_path` argument to point to your custom YAML file, in which case the `architecture` field is
 unnecessary.
 
-### Inference
+## Inference
 
 To use the quantized model for inference, you can use the `AnyPrecisionForCausalLM` class from the `any_precision`
 module.  
@@ -185,7 +183,7 @@ model.generate(..., precision=5)
 model.set_precision(8)
 ```
 
-### Demo
+## Demo
 
 We have provided a demo script to showcase the inference capabilities of the quantized model.
 To run the demo, execute the following command:
@@ -203,6 +201,18 @@ the seed precision to the parent precision. The latency at each precision is mea
 The demo will look like this when run properly:
 
 TODO: Add demo GIF
+
+## Evaluation
+
+We have provided a script to evaluate the perplexity of the quantized model on various datasets.
+To run the evaluation, execute the following command:
+
+```bash
+python run_eval.py
+```
+
+You can specify which datasets to evaluate on by changing the `datasets` variable within the script.  
+The results are automatically appended to a JSON file. (By default, `results.json`)
 
 ## Citation
 
