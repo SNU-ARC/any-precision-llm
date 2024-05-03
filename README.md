@@ -71,7 +71,7 @@ A `cache` directory is created to store both intermediate files and the final qu
 The final quantized model can be found under `cache/packed`.
 
 **Note**: We have tested the quantization on Llama, OPT and Mistral models. Other models can be automatically quantized,
-but we do not guarantee the correctness of the quantization.
+but we do not guarantee the correctness of the quantization.  
 **Note**: You need free space of approximately 2x the fp16 model size in RAM, VRAM, and disk to quantize the model.
 For Llama 2 7B, this is approximately 28 GB.  
 **Note**: The quantization process utilizes both CPU and GPU resources. As the main quantization process is CPU-bound,
