@@ -38,8 +38,8 @@ def get_analyzer(model, yaml_path=None, include_tokenizer=False):
         if not os.path.exists(yaml_path):
             raise FileNotFoundError(f"Specified yaml file does not exist: {yaml_path}")
         with open(yaml_path) as f:
-            quant_config = yaml.safe_load(f)
-        return ModelAnalyzer.from_arch_config(model, quant_config, include_tokenizer=include_tokenizer)
+            yaml_contents = yaml.safe_load(f)
+        return ModelAnalyzer.from_arch_config(model, yaml_contents['arch_config'], include_tokenizer=include_tokenizer)
 
 
 class ModelAnalyzer:

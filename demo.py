@@ -1,5 +1,5 @@
 import torch
-from any_precision.modules import AnyPrecisionForCausalLM
+from any_precision import AnyPrecisionForCausalLM
 from transformers import AutoTokenizer, TextStreamer, AutoModelForCausalLM
 import logging
 import time
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         output = model.generate(
             input_ids,
             precision=precision,
-            max_new_tokens=128,
+            max_new_tokens=256,
             pad_token_id=tokenizer.eos_token_id,
             streamer=streamer,
         )
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         tokens_per_second = token_count / (end_time - start_time)
         ms_per_token = 1 / tokens_per_second * 1000
 
-        results[f"{precision}-bit"] = (tokens_per_second, ms_per_token)
+        results[precision] = (tokens_per_second, ms_per_token)
 
         print(f"\n( Generation speed: {tokens_per_second:.1f} tok/s | Latency: {ms_per_token:.2f} ms/tok )\n")
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     start_time = time.time()
     output = model.generate(
         input_ids,
-        max_length=128,
+        max_length=256,
         pad_token_id=tokenizer.eos_token_id,
         streamer=streamer,
     )
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     tokens_per_second = token_count / (end_time - start_time)
     ms_per_token = 1 / tokens_per_second * 1000
 
-    results["fp16"] = (tokens_per_second, ms_per_token)
+    results[16] = (tokens_per_second, ms_per_token)
 
     print(f"\n( Generation speed: {tokens_per_second:.1f} tok/s | Latency: {ms_per_token:.2f} ms/tok )\n")
 
@@ -90,4 +90,4 @@ if __name__ == '__main__':
     print(f"\nModel: {model_path}\n")
 
     for precision, (tokens_per_second, ms_per_token) in results.items():
-        print(f"{precision}: {tokens_per_second:.1f} tok/s | {ms_per_token:.2f} ms/tok")
+        print(f"{precision}-bit: {tokens_per_second:.1f} tok/s | {ms_per_token:.2f} ms/tok")
