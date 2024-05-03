@@ -8,8 +8,8 @@ import time
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
 
 if __name__ == '__main__':
-    model_path = './cache/packed/anyprec-(Llama-2-7b-hf)-w8_orig3-gc1-c4_s100_blk512'
-    original_model_path = 'meta-llama/Llama-2-7b-hf'
+    model_path = './cache/packed/anyprec-(Llama-2-7b-chat-hf)-w8_orig3-gc1-c4_s100_blk512'
+    original_model_path = 'meta-llama/Llama-2-7b-chat-hf'
 
     # Load model and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_path)
