@@ -17,7 +17,7 @@ Illustration of incremental upscaling scheme
 Illustration of specialized software engine for any-precision LLM
 </div>
 
-## How to use any-precision LLMs
+## How to Use Any-Precision LLMs
 
 ### Setup
 
