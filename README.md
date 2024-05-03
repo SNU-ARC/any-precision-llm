@@ -22,7 +22,7 @@ Illustration of incremental upscaling scheme
 Illustration of specialized software engine for any-precision LLM
 </div>
 
-## How to Use Any-Precision LLMs
+## How to Use Any-Precision LLM
 
 ### Prerequisites
 
