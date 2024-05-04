@@ -185,7 +185,7 @@ model.set_precision(8)
 
 ## Demo
 
-We have provided a demo script to showcase the inference capabilities of the quantized model.
+We have provided a demo script to showcase the dynamic inference latency of the quantized model.
 To run the demo, execute the following command:
 
 ```bash
