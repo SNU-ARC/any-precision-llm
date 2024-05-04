@@ -3,9 +3,17 @@ from any_precision import AnyPrecisionForCausalLM
 from transformers import AutoTokenizer, TextStreamer, AutoModelForCausalLM
 import logging
 import time
+from argparse import ArgumentParser
 
 # Logging with time sans date, level name, and message
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s | %(levelname)s] %(message)s', datefmt='%H:%M:%S')
+
+parser = ArgumentParser()
+parser.add_argument('-p', '--precisions', nargs='+', type=int, default=None,
+                    help="The precisions to benchmark. If not specified, all available precisions will be benchmarked."
+                    )
+
+args = parser.parse_args()
 
 if __name__ == '__main__':
     model_path = './cache/packed/anyprec-(Llama-2-7b-chat-hf)-w8_orig3-gc1-c4_s100_blk512'
@@ -17,6 +25,18 @@ if __name__ == '__main__':
 
     model = AnyPrecisionForCausalLM.from_quantized(model_path)
     model = model.eval().cuda()
+
+    # Configure the precisions to benchmark
+    do_fp16 = True
+    if args.precisions is not None:
+        precisions = args.precisions
+        if 16 in precisions:
+            precisions.remove(16)
+        else:
+            do_fp16 = False
+        assert all(precision in model.precisions for precision in precisions), "Unsupported precision(s) specified."
+    else:
+        precisions = model.precisions
 
     # Warm up CUDA cache for stable performance
     print("~~~~~~~ Warming up CUDA cache ~~~~~~~")
@@ -36,7 +56,8 @@ if __name__ == '__main__':
     input_ids = tokenizer.encode(input_context, return_tensors="pt").cuda()
 
     results = {}
-    for precision in model.precisions:
+
+    for precision in precisions:
         print(f"=============== generation with {precision}-bit precision ===============")
         torch.cuda.synchronize()
         start_time = time.time()
@@ -63,28 +84,29 @@ if __name__ == '__main__':
     del model
     torch.cuda.empty_cache()
 
-    # Benchmark the original model
-    print(f"=============== generation with fp16 precision ===============")
-    model = AutoModelForCausalLM.from_pretrained(original_model_path, torch_dtype=torch.float16).eval().cuda()
-    torch.cuda.synchronize()
-    start_time = time.time()
-    output = model.generate(
-        input_ids,
-        max_length=256,
-        pad_token_id=tokenizer.eos_token_id,
-        streamer=streamer,
-    )
-    torch.cuda.synchronize()
-    end_time = time.time()
+    if do_fp16:
+        # Benchmark the original model
+        print(f"=============== generation with fp16 precision ===============")
+        model = AutoModelForCausalLM.from_pretrained(original_model_path, torch_dtype=torch.float16).eval().cuda()
+        torch.cuda.synchronize()
+        start_time = time.time()
+        output = model.generate(
+            input_ids,
+            max_length=256,
+            pad_token_id=tokenizer.eos_token_id,
+            streamer=streamer,
+        )
+        torch.cuda.synchronize()
+        end_time = time.time()
 
-    # Calculate generation speed
-    token_count = len(output[0]) - len(input_ids[0])
-    tokens_per_second = token_count / (end_time - start_time)
-    ms_per_token = 1 / tokens_per_second * 1000
+        # Calculate generation speed
+        token_count = len(output[0]) - len(input_ids[0])
+        tokens_per_second = token_count / (end_time - start_time)
+        ms_per_token = 1 / tokens_per_second * 1000
 
-    results[16] = (tokens_per_second, ms_per_token)
+        results[16] = (tokens_per_second, ms_per_token)
 
-    print(f"\n( Generation speed: {tokens_per_second:.1f} tok/s | Latency: {ms_per_token:.2f} ms/tok )\n")
+        print(f"\n( Generation speed: {tokens_per_second:.1f} tok/s | Latency: {ms_per_token:.2f} ms/tok )\n")
 
     print("=============== Summary ===============")
     print(f"\nModel: {model_path}\n")

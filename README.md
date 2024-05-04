@@ -189,14 +189,15 @@ We have provided a demo script to showcase the inference capabilities of the qua
 To run the demo, execute the following command:
 
 ```bash
-python demo.py
+python demo.py -p 3 4 5 6 16
 ```
 
 Note that the demo script requires the quantized `Llama-2-7b-chat-hf` model to be present in the cache directory.  
 Other models can be used by changing the `model_path` and `original_model_path` variables in the script.
 
-The demo script will load the quantized model, and perform inference on a custom prompt, using precisions ranging from
-the seed precision to the parent precision. The latency at each precision is measured and displayed.
+The demo script will load the quantized model, and perform inference on a custom prompt, using specified precisions. 
+Include 16 to measure the latency of the original model in fp16.
+The latency at each precision will be measured and displayed.
 
 The demo will look like this when run properly:
 
