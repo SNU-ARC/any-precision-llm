@@ -11,19 +11,26 @@ def rand_choice_prefix_sum(arr, prob_prefix_sum):
 
 
 @numba.njit(cache=True)
-def calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum,
-                      count=None):
-    """ Time complexity: O(n_clusters * log(n_samples))"""
-    if count is None:
-        count = len(X)
-    # Assume sorted X
-    centroids = np.sort(centroids)
+def centroids_to_centroid_ranges(X, centroids):
+    """Centroids must be sorted!"""
     midpoints = (centroids[:-1] + centroids[1:]) / 2
-
     centroid_ranges = np.empty(len(centroids) + 1, dtype=np.int32)
     centroid_ranges[0] = 0
     centroid_ranges[-1] = len(X)
     centroid_ranges[1:-1] = np.searchsorted(X, midpoints)
+    return centroid_ranges
+
+
+@numba.njit(cache=True)
+def calculate_inertia(X, sorted_centroids, centroid_ranges,
+                      weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum, count=None):
+    """ Time complexity: O(n_clusters * log(n_samples))"""
+    if count is None:
+        count = len(X)
+    # Assume sorted X
+
+    if centroid_ranges is None:
+        centroid_ranges = centroids_to_centroid_ranges(X, sorted_centroids)
 
     # inertia = sigma_i(w_i * abs(x_i - c)^2) = sigma_i(w_i * (x_i^2 - 2 * x_i * c + c^2))
     #         = sigma_i(w_i * x_i^2) - 2 * c * sigma_i(w_i * x_i) + c^2 * sigma_i(w_i)
@@ -31,7 +38,7 @@ def calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, w
     #  Note that the centroid c is the CLOSEST centroid to x_i, so the above calculation must be done for each cluster
 
     inertia = 0
-    for i in range(len(centroids)):
+    for i in range(len(sorted_centroids)):
         start = centroid_ranges[i]
         end = centroid_ranges[i + 1]
 
@@ -47,15 +54,18 @@ def calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, w
         cluster_weighted_X_sum = query_prefix_sum(weighted_X_prefix_sum, start, end)
         cluster_weight_sum = query_prefix_sum(weights_prefix_sum, start, end)
 
-        inertia += cluster_weighted_X_squared_sum - 2 * centroids[i] * cluster_weighted_X_sum + \
-                   centroids[i] ** 2 * cluster_weight_sum
+        inertia += cluster_weighted_X_squared_sum - 2 * sorted_centroids[i] * cluster_weighted_X_sum + \
+                   sorted_centroids[i] ** 2 * cluster_weight_sum
 
     return inertia
 
 
 @numba.njit(cache=True)
 def rand_choice_centroids(X, centroids, weights_prefix_sum, weighted_X_prefix_sum, weighted_X_squared_prefix_sum, size):
-    total_inertia = calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum,
+    sorted_centroids = np.sort(centroids)
+    centroid_ranges = centroids_to_centroid_ranges(X, sorted_centroids)
+    total_inertia = calculate_inertia(X, sorted_centroids, centroid_ranges,
+                                      weights_prefix_sum, weighted_X_prefix_sum,
                                       weighted_X_squared_prefix_sum)
     selectors = np.random.random_sample(size) * total_inertia
     results = np.empty(size, dtype=centroids.dtype)
@@ -66,7 +76,8 @@ def rand_choice_centroids(X, centroids, weights_prefix_sum, weighted_X_prefix_su
         right = len(X)
         while left < right:
             mid = (left + right) // 2
-            inertia = calculate_inertia(X, centroids, weights_prefix_sum, weighted_X_prefix_sum,
+            inertia = calculate_inertia(X, sorted_centroids, centroid_ranges,
+                                        weights_prefix_sum, weighted_X_prefix_sum,
                                         weighted_X_squared_prefix_sum,
                                         count=mid)
             if inertia < selector:
@@ -97,7 +108,10 @@ def kmeans_plusplus(X, n_clusters, weights_prefix_sum, weighted_X_prefix_sum, we
         best_centroid = None
         for i in range(len(centroid_candidates)):
             centroids[c_id] = centroid_candidates[i]
-            inertia = calculate_inertia(X, centroids[:c_id + 1], weights_prefix_sum, weighted_X_prefix_sum,
+            sorted_centroids = np.sort(centroids[:c_id + 1])
+            centroid_ranges = centroids_to_centroid_ranges(X, sorted_centroids)
+            inertia = calculate_inertia(X, sorted_centroids, centroid_ranges,
+                                        weights_prefix_sum, weighted_X_prefix_sum,
                                         weighted_X_squared_prefix_sum)
             if inertia < best_inertia:
                 best_inertia = inertia
