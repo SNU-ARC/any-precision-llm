@@ -5,8 +5,73 @@ import numpy as np
 from tqdm import tqdm
 import numba
 from concurrent.futures import ThreadPoolExecutor
-from .upscale import _upscale_group
-from .seed import my_kmeans
+import flash1dkmeans
+
+
+@numba.njit(cache=True)
+def _upscale_group(orig_centroids,
+                   orig_cluster_borders, weights,
+                   weighted_X_prefix_sum, sample_weight_prefix_sum,
+                   seed_bit, parent_bit):
+    """WARNING: labels, weights and sample_weight should be sorted by weights in ascending order"""
+    luts_by_bit = [orig_centroids]
+
+    cluster_borders = orig_cluster_borders
+
+    # Run the upscale
+    for i in range(seed_bit, parent_bit):
+        centroids, cluster_borders = _increment_group(luts_by_bit[-1], cluster_borders, weights,
+                                                      weighted_X_prefix_sum,
+                                                      sample_weight_prefix_sum, i)
+        luts_by_bit.append(centroids)
+
+    return luts_by_bit, cluster_borders
+
+
+@numba.njit(cache=True)
+def _increment_group(orig_centroids, cluster_borders, weights, weighted_X_prefix_sum,
+                     sample_weight_prefix_sum,
+                     seed_bit):
+    """WARNING: labels, weights and sample_weight should be sorted by weights in ascending order"""
+    new_centroids = np.empty(2 ** (seed_bit + 1), dtype=np.float32)
+    new_cluster_borders = np.empty(2 ** (seed_bit + 1) + 1, dtype=np.int32)
+
+    assert len(orig_centroids) == 2 ** seed_bit, "The number of centroids should be 2^seed_bit"
+    assert len(cluster_borders) == 2 ** seed_bit + 1, \
+        "The number of cluster start indices should be 2^seed_bit + 1"
+
+    for c in range(2 ** seed_bit):
+        start_idx = cluster_borders[c]
+        stop_idx = cluster_borders[c + 1]
+
+        if start_idx == stop_idx:
+            # These are empty clusters, but we still need to save the centroids
+            new_centroids[c * 2] = orig_centroids[c]
+            new_centroids[c * 2 + 1] = orig_centroids[c]
+            # new_cluster_borders still needs to be set
+            new_cluster_borders[c * 2] = start_idx
+            new_cluster_borders[c * 2 + 1] = start_idx
+            continue
+
+        cluster_centers, local_cluster_borders = flash1dkmeans.numba_kmeans_1d_two_cluster(
+            sorted_X=weights,
+            weights_prefix_sum=sample_weight_prefix_sum,
+            weighted_X_prefix_sum=weighted_X_prefix_sum,
+            start_idx=start_idx,
+            stop_idx=stop_idx
+        )
+
+        # local_cluster_borders is [start_idx, division_point, stop_idx]
+
+        # save the new centroids and labels
+        new_centroids[c * 2] = cluster_centers[0]
+        new_centroids[c * 2 + 1] = cluster_centers[1]
+        new_cluster_borders[c * 2] = start_idx
+        new_cluster_borders[c * 2 + 1] = local_cluster_borders[1]
+
+    new_cluster_borders[-1] = cluster_borders[-1]  # the final border must be set manually
+
+    return new_centroids, new_cluster_borders
 
 
 @numba.njit(parallel=True, cache=True)
@@ -79,10 +144,16 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
                 # ---------------- Seed ----------------
 
                 # Generate the seed weights
-                centroids, cluster_borders = my_kmeans(
-                    sorted_X, sorted_weights_prefix_sum,
-                    sorted_weighted_X_prefix_sum,
-                    sorted_weighted_X_squared_prefix_sum, n_cluster
+
+                centroids, cluster_borders = flash1dkmeans.numba_kmeans_1d_k_cluster(
+                    sorted_X=sorted_X,
+                    n_clusters=n_cluster,
+                    max_iter=50,
+                    weights_prefix_sum=sorted_weights_prefix_sum,
+                    weighted_X_prefix_sum=sorted_weighted_X_prefix_sum,
+                    weighted_X_squared_prefix_sum=sorted_weighted_X_squared_prefix_sum,
+                    start_idx=0,
+                    stop_idx=len(sorted_X),
                 )
 
                 centroids = centroids.astype(np.float32)
@@ -122,7 +193,7 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
 def set_np_seed_njit(random_state):
     """Set the seed for numpy random number generator.
     Must be used in a numba.jit function."""
-    if random_state is not None:  
+    if random_state is not None:
         # Only integer arguments allowed for np.random.seed in Numba.
         # A random_state of None should reset the random generator, but since we can't do so explicitly,
         # I'm counting on the multi-thread environment of Numba to effectively reset the generator to a

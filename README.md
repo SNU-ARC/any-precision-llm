@@ -88,7 +88,7 @@ On lower-end machines this will be a few times slower.
 - `--seed_precision`: The seed model precision. Default is 3.
 - `--parent_precision`: The parent model precision. Default is 8.
   (The final quantized model will support precisions in the range `[seed_precision, parent_precision]`.)
-- `--mode`: The mode of operation. Valid options are `gradients`, `upscale`, and `pack`, which are the three steps of
+- `--mode`: The mode of operation. Valid options are `gradients`, `quantize`, and `pack`, which are the three steps of
   quantization.
   The quantization process will abort after the specified operation. Default is `pack`, which completes the entire
   quantization process.
@@ -106,7 +106,7 @@ On lower-end machines this will be a few times slower.
 
 - `--overwrite_gradients`: Whether to overwrite the gradients stored to disk. When not set, the gradients are
   loaded from disk if available.
-- `--overwrite_upscale`: Whether to overwrite the parent model stored to disk. When not set, the parent model is
+- `--overwrite_quantize`: Whether to overwrite the parent model stored to disk. When not set, the parent model is
   loaded from disk if available.
 - `--overwrite_pack`: Whether to overwrite the packed model stored to disk. When not set, the packed model will not be
   overwritten if it already exists.

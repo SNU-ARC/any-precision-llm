@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--cpu_count", type=int, help="The number of CPUs to use for parallelization")
     parser.add_argument('--overwrite_gradients', action="store_true",
                         help="Whether to overwrite the gradients stored to disk")
-    parser.add_argument("--overwrite_upscale", action="store_true",
+    parser.add_argument("--overwrite_quantize", action="store_true",
                         help="Whether to overwrite the parent model stored to disk")
     parser.add_argument("--overwrite_pack", action="store_true",
                         help="Whether to overwrite the packed model stored to disk")
