@@ -198,6 +198,8 @@ Other models can be used by changing the `model_path` and `original_model_path` 
 The demo script will load the quantized model, and perform inference on a custom prompt, using specified precisions. 
 Include 16 to measure the latency of the original model in fp16.
 The latency at each precision will be measured and displayed.
+Please note that this demonstration serves as a proof-of-concept. 
+Further optimizations in the inference pipeline are needed to achieve the best performance of our engine.
 
 The demo will look like this when run properly:
 
