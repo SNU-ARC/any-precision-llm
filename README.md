@@ -2,6 +2,7 @@
 
 ## Overview
 
+This repository contains the official code for "Any-Precision LLM: Low-Cost Deployment of Multiple, Different-Sized LLMs" (To appear at ICML 2024). 
 Any-precion LLM is a memory-efficient and cost-effective solution for deployment of multiple, different sized LLMs.
 Specifically, any-precision LLM redues the memory cost of deplying multiple, different-sized LLMs by overlaying LLMs
 quantized to varying bit-widths, such as 3, 4, ..., n bits, into a memory footprint comparable to a single n-bit LLM.
