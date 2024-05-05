@@ -19,13 +19,6 @@ if __name__ == '__main__':
     model_path = './cache/packed/anyprec-(Llama-2-7b-chat-hf)-w8_orig3-gc1-c4_s100_blk512'
     original_model_path = 'meta-llama/Llama-2-7b-chat-hf'
 
-    # Load model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    streamer = TextStreamer(tokenizer)
-
-    model = AnyPrecisionForCausalLM.from_quantized(model_path)
-    model = model.eval().cuda()
-
     # Configure the precisions to benchmark
     do_fp16 = True
     if args.precisions is not None:
@@ -34,9 +27,15 @@ if __name__ == '__main__':
             precisions.remove(16)
         else:
             do_fp16 = False
-        assert all(precision in model.precisions for precision in precisions), "Unsupported precision(s) specified."
     else:
-        precisions = model.precisions
+        precisions = None  # Benchmark all available precisions
+
+    # Load model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    streamer = TextStreamer(tokenizer)
+
+    model = AnyPrecisionForCausalLM.from_quantized(model_path, precisions=precisions)
+    model = model.eval().cuda()
 
     # Warm up CUDA cache for stable performance
     print("~~~~~~~ Warming up CUDA cache ~~~~~~~")
