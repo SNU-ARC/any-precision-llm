@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     results = {}
 
-    for precision in precisions:
+    for precision in model.precisions:
         print(f"=============== generation with {precision}-bit precision ===============")
         torch.cuda.synchronize()
         start_time = time.time()
