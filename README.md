@@ -203,7 +203,8 @@ Further optimizations in the inference pipeline are needed to achieve the best p
 
 The demo will look like this when run properly:
 
-TODO: Add demo GIF
+![AnyPrec Latency Demo](https://github.com/SNU-ARC/any-precision-llm/assets/48833786/75a42bea-979a-489f-aee8-89697c55411a)
+
 
 ## Evaluation
 
