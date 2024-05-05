@@ -189,7 +189,7 @@ We have provided a demo script to showcase the dynamic inference latency of the 
 To run the demo, execute the following command:
 
 ```bash
-python demo.py -p 3 4 5 6 16
+python demo.py
 ```
 
 Note that the demo script requires the quantized `Llama-2-7b-chat-hf` model to be present in the cache directory.  
@@ -198,7 +198,7 @@ Other models can be used by changing the `model_path` and `original_model_path` 
 The demo script will load the quantized model, and perform inference on a custom prompt, using specified precisions. 
 Include 16 to measure the latency of the original model in fp16.
 The latency at each precision will be measured and displayed.
-Please note that this demonstration serves as a proof-of-concept. 
+Please note that this demo serves as a proof-of-concept. 
 Further optimizations in the inference pipeline are needed to achieve the best performance of our engine.
 
 The demo will look like this when run properly:
