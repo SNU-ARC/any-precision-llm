@@ -227,7 +227,7 @@ Please cite our paper if you find our work useful:
       title={Any-Precision LLM: Low-Cost Deployment of Multiple, Different-Sized LLMs}, 
       author={Yeonhong Park and Jake Hyun and SangLyul Cho and Bonggeun Sim and Jae W. Lee},
       year={2024},
-      booktitle={Proceedings of the 40th International Conference on Machine Learning},
+      booktitle={Proceedings of the 41st International Conference on Machine Learning},
 }
 ```
 
