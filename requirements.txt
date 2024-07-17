@@ -3,7 +3,7 @@ torch~=2.2.2
 transformers~=4.39.3
 tqdm~=4.66.2
 scikit-learn~=1.4.0
-numba~=0.59.0
+numba~=0.60.0
 datasets~=2.17.0
 accelerate~=0.29.2
 setuptools~=68.2.0
@@ -12,4 +12,4 @@ safetensors~=0.4.2
 threadpoolctl~=3.2.0
 pyyaml~=6.0.1
 attributedict~=0.3.0
-flash1dkmeans==0.1.1
+flash1dkmeans==0.1.4

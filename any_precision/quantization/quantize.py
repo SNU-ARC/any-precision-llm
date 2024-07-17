@@ -76,8 +76,6 @@ def _increment_group(orig_centroids, cluster_borders, weights, weighted_X_prefix
 
 @numba.njit(parallel=True, cache=True)
 def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit, group_count, random_state=None):
-    # WARNING: random_state does NOT guarantee reproducibility on different machines
-
     # The shape of LUTs are different for each module and bit.
     # The logical thing to do would be to use a list of lists(for each bit-width) of numpy arrays(for each module).
     # However as numba doesn't like nested python lists, we will use a list of numpy arrays instead,
@@ -104,7 +102,6 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
             lut_by_bit.append(np.empty((row_count, group_count, 2 ** bit), dtype=np.float32))
 
         for r_idx in numba.prange(module_weight.shape[0]):
-            set_np_seed_njit(random_state)  # this needs to be set per thread
             for g_idx in range(group_count):
                 start_col_idx = g_idx * group_size
                 end_col_idx = (g_idx + 1) * group_size
@@ -154,6 +151,7 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
                     weighted_X_squared_prefix_sum=sorted_weighted_X_squared_prefix_sum,
                     start_idx=0,
                     stop_idx=len(sorted_X),
+                    random_state=random_state,
                 )
 
                 centroids = centroids.astype(np.float32)
@@ -187,18 +185,6 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
         lut_by_bit_by_module.append(lut_by_bit)
 
     return lut_by_bit_by_module, parent_weights_by_modules
-
-
-@numba.njit(cache=True)
-def set_np_seed_njit(random_state):
-    """Set the seed for numpy random number generator.
-    Must be used in a numba.jit function."""
-    if random_state is not None:
-        # Only integer arguments allowed for np.random.seed in Numba.
-        # A random_state of None should reset the random generator, but since we can't do so explicitly,
-        # I'm counting on the multi-thread environment of Numba to effectively reset the generator to a
-        # random seed after a possible seed being set in previous code.
-        np.random.seed(random_state)
 
 
 def get_layer_loader(analyzer, gradients):
