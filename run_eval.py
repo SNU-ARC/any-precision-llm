@@ -54,9 +54,14 @@ skipped_models = []  # models that are skipped will be stored here
 for model_path in model_paths:
     model_name = os.path.basename(model_path)
     model_jobs = {'to_print': [], 'ppl': [], 'lm-eval': []}
-    # This logic doesn't support dataset-level redoing for now, as it requires separate logic for Any-Precision models
-    datasets_with_results = [dataset for dataset in datasets if all_results.get(model_name, {}).get('ppl', {})]
-    tasks_with_results = [task for task in tasks if task in all_results.get(model_name, {}).get('lm-eval', {})]
+
+    # Check if all results already exist for any bit-width. If so, skip that dataset/task.
+    datasets_with_results = [testcase for testcase in datasets if
+                             any(testcase == key.split(':')[0] for key in
+                                 all_results.get(model_name, {}).get('ppl', {}).keys())]
+    tasks_with_results = [task for task in tasks if
+                          any(task == key.split(':')[0] for key in
+                              all_results.get(model_name, {}).get('lm-eval', {}).keys())]
     if not args.redo:
         model_jobs['ppl'] = [testcase for testcase in datasets if testcase not in datasets_with_results]
         model_jobs['lm-eval'] = [task for task in tasks if task not in tasks_with_results]
@@ -97,9 +102,15 @@ print('\n'.join(os.path.basename(model_path) for model_path in total_tests_to_ru
 
 
 def save_results(results_dict):
+    def recursive_sort_dict(d):
+        if isinstance(d, dict):
+            return {k: recursive_sort_dict(v) for k, v in sorted(d.items())}
+        return d
+
+    sorted_results = recursive_sort_dict(results_dict)
+
     with open(args.output_file, 'w') as f:
-        results_dict = dict(sorted(results_dict.items()))  # sort by key
-        json.dump(results_dict, f, indent=2)
+        json.dump(sorted_results, f, indent=2)
 
 
 # Run all tasks

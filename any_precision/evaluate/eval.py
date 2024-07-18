@@ -224,7 +224,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
             ppl = torch.exp(torch.stack(neg_log_likelihoods).mean())
             logprint(verbose, f"Perplexity: {ppl.item()}")
 
-            results[f"{bit}-bit:{testcase_name}"] = ppl.item()
+            results[f"{testcase_name}:{bit}-bit"] = ppl.item()
 
         if not is_anyprec:
             break
@@ -261,7 +261,7 @@ def run_lm_eval(tokenizer, model, tasks, verbose=True):
             logprint(verbose, json.dumps(eval_results['results'], indent=4))
 
         for task in tasks:
-            results[f"{bit}-bit:{task}"] = eval_results['results'][task]
+            results[f"{task}:{bit}-bit"] = eval_results['results'][task]
 
         if not is_anyprec:
             break
