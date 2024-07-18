@@ -42,9 +42,11 @@ def get_gradients(
     def square_grad_hook(grad):
         return grad.pow(2)
 
+    hooks = []
+
     for layer in layers:
         for module in analyzer.get_modules(layer).values():
-            module.weight.register_hook(square_grad_hook)
+            hooks.append(module.weight.register_hook(square_grad_hook))
 
     # Calculate gradients through loss.backward()
     for tokens in tqdm(input_tokens, desc="Calculating gradients"):
@@ -53,6 +55,10 @@ def get_gradients(
         outputs = model(input_ids=tokens, labels=tokens)
         loss = outputs.loss
         loss.backward()
+
+    # Remove hooks
+    for hook in hooks:
+        hook.remove()
 
     # Move model back to cpu
     model.cpu()
