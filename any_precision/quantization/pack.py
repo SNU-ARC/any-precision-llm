@@ -106,8 +106,8 @@ def _process_layer_data(args):
             layer_lut = torch.load(layer_lut_path)
 
             curLUT = np.empty((N, 2 ** bit), dtype=np.float16)
-            for j in range(N):
-                curLUT[j] = layer_lut[name][j][0]  # the 0 here assumes group_count == 1
+            for r_idx in range(N):
+                curLUT[r_idx] = layer_lut[name][r_idx][0]  # the 0 here assumes group_count == 1
 
             layer_data[param_name + '.lut' + str(bit)] = curLUT
 
