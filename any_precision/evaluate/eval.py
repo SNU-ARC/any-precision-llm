@@ -2,9 +2,11 @@ from .helpers import dataloader
 from tqdm import tqdm
 import torch
 from .helpers.utils import vprint, logprint, get_tokenizer_type, name_splitter, base_model_name_to_hf_repo_name
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from ..modules import AnyPrecisionForCausalLM
 import os
+import json
+import lm_eval
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -83,7 +85,7 @@ def fake_pack(parent_path, verbose=True):
 
     for bit in luts:
         state_dict = model.state_dict()
-        for l in tqdm(range(layer_count), desc=f"Replacing qweights with {bit}-bit centroids",):
+        for l in tqdm(range(layer_count), desc=f"Replacing qweights with {bit}-bit centroids", ):
             qweight = qweights[l]
             lut = luts[bit][l]
             for module_name in qweight:
@@ -223,6 +225,43 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
             logprint(verbose, f"Perplexity: {ppl.item()}")
 
             results[f"{bit}-bit:{testcase_name}"] = ppl.item()
+
+        if not is_anyprec:
+            break
+
+    return results
+
+
+@torch.no_grad()
+def run_lm_eval(tokenizer, model, tasks, verbose=True):
+    """ Run lm-eval on the given model and tasks and return the results.
+
+    Receives an already initialized hf model, and a list of task names.
+    """
+    if isinstance(model, AnyPrecisionForCausalLM):
+        is_anyprec = True
+    else:
+        is_anyprec = False
+
+    model.eval()
+
+    results = {}
+
+    supported_bits = model.precisions if is_anyprec else [None]
+
+    for bit in supported_bits:
+        if is_anyprec:
+            logprint(verbose, f"<<<< Setting model precision to {bit}-bit... >>>>")
+            model.set_precision(bit)
+
+        model_lm = lm_eval.models.huggingface.HFLM(pretrained=model, tokenizer=tokenizer)
+        eval_results = lm_eval.simple_evaluate(model=model_lm, tasks=tasks)
+
+        if verbose:
+            logprint(verbose, json.dumps(eval_results['results'], indent=4))
+
+        for task in tasks:
+            results[f"{bit}-bit:{task}"] = eval_results['results'][task]
 
         if not is_anyprec:
             break
