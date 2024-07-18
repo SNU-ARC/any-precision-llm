@@ -40,7 +40,7 @@ Illustration of specialized software engine for any-precision LLM
 3. Install the Any-Precision CUDA kernels.
 
     ```bash
-    cd any_precision_llm/modules/kernels
+    cd any_precision/modules/kernels
     pip install .
     ```
    You will need to have CUDA toolkit 12 or higher installed on your machine to build the CUDA kernels. You will also
