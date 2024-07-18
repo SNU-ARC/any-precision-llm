@@ -75,7 +75,7 @@ def _increment_group(orig_centroids, cluster_borders, weights, weighted_X_prefix
 
 
 @numba.njit(parallel=True, cache=True)
-def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit, group_count, random_state=None):
+def _seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit, group_count, random_state=None):
     # The shape of LUTs are different for each module and bit.
     # The logical thing to do would be to use a list of lists(for each bit-width) of numpy arrays(for each module).
     # However as numba doesn't like nested python lists, we will use a list of numpy arrays instead,
@@ -187,7 +187,7 @@ def seed_and_upscale_layer(layer_gradients, layer_modules, seed_bit, parent_bit,
     return lut_by_bit_by_module, parent_weights_by_modules
 
 
-def get_layer_loader(analyzer, gradients):
+def _get_layer_loader(analyzer, gradients):
     def layer_loader(l):
         # Convert from torch.bf16 to np.fp32 for numba processing
         # Only converts one layer at a time to avoid excessive memory usage
@@ -218,7 +218,7 @@ def _save_results(parent_parameters_path, seed_precision, parent_precision, modu
     torch.save(parent_weight_dict, output_weights_layer_file_name)
 
 
-def get_saver(parent_parameters_path, seed_precision, parent_precision, module_names):
+def _get_saver(parent_parameters_path, seed_precision, parent_precision, module_names):
     """Returns a function that saves the results for a given layer"""
 
     def save_results(luts_by_bit_by_module, parent_weights, l):
@@ -228,7 +228,7 @@ def get_saver(parent_parameters_path, seed_precision, parent_precision, module_n
     return save_results
 
 
-def load_progress(parent_parameters_path, seed_precision, parent_precision, layer_count):
+def _load_progress(parent_parameters_path, seed_precision, parent_precision, layer_count):
     # Check if the layer has already been processed
     todo_ran = []
     processed_ran = []
@@ -270,7 +270,7 @@ def seed_and_upscale(
 
     logging.info(f"Seeding & Upscaling from {seed_precision}-bit to {parent_precision}-bit")
 
-    layers_to_process, completed_layers = load_progress(output_folder, seed_precision, parent_precision,
+    layers_to_process, completed_layers = _load_progress(output_folder, seed_precision, parent_precision,
                                                         analyzer.num_layers)
 
     if completed_layers:
@@ -283,8 +283,8 @@ def seed_and_upscale(
 
     logging.info(f"Quantizing layers {layers_to_process}")
 
-    layer_loader = get_layer_loader(analyzer, gradients)
-    layer_saver = get_saver(output_folder, seed_precision, parent_precision, analyzer.module_names)
+    layer_loader = _get_layer_loader(analyzer, gradients)
+    layer_saver = _get_saver(output_folder, seed_precision, parent_precision, analyzer.module_names)
 
     if pipelined_io:
         with ThreadPoolExecutor(max_workers=io_workers) as io_executor:
@@ -297,7 +297,7 @@ def seed_and_upscale(
                 if l != layers_to_process[-1]:
                     future_load = io_executor.submit(layer_loader, l + 1)
 
-                luts_by_bit_by_module, parent_weights = seed_and_upscale_layer(
+                luts_by_bit_by_module, parent_weights = _seed_and_upscale_layer(
                     gradient_layer,
                     model_layer,
                     seed_precision,
@@ -312,7 +312,7 @@ def seed_and_upscale(
         for l in tqdm(layers_to_process, desc="Quantizing layers..."):
             gradient_layer, model_layer = layer_loader(l)
 
-            luts_by_bit_by_module, parent_weights = seed_and_upscale_layer(
+            luts_by_bit_by_module, parent_weights = _seed_and_upscale_layer(
                 gradient_layer,
                 model_layer,
                 seed_precision,

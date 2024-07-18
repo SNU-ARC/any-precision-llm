@@ -192,7 +192,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
         for testcase_name in testcases:
             vprint(verbose, f"---------------------- {testcase_name} ----------------------")
 
-            input_tokens = load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
+            input_tokens = _load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose)
 
             input_tokens.to(model.device)
 
@@ -230,7 +230,7 @@ def evaluate_ppl(model, tokenizer, testcases, verbose=True, chunk_size=2048, tok
     return results
 
 
-def load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose):
+def _load_input_tokens(tokenizer_type, testcase_name, tokenizer, verbose):
     """ Load input tokens from cache if available, otherwise load from dataloader and save to cache. """
     input_tokens_cache_path = f"{current_dir}/input_tokens_cache/dataloader-{tokenizer_type}-{testcase_name}-test.pt"
     if tokenizer_type and os.path.exists(input_tokens_cache_path):
