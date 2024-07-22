@@ -2,7 +2,7 @@
 
 ## Overview
 
-Any-precion LLM is a memory-efficient and cost-effective solution for deployment of multiple, different sized LLMs.
+Any-precision LLM is a memory-efficient and cost-effective solution for deployment of multiple, different sized LLMs.
 Specifically, any-precision LLM redues the memory cost of deplying multiple, different-sized LLMs by overlaying LLMs
 quantized to varying bit-widths, such as 3, 4, ..., n bits, into a memory footprint comparable to a single n-bit LLM.
 This includes a lightweight any-precision quantization technique for LLMs called incremental upscaling, and a
