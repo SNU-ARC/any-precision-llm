@@ -19,7 +19,7 @@ __global__ void matmul_kbit_32(
     const uint32_t M, const uint32_t N, const uint32_t K,
     const __half * C, __half * O
 ) {
-    static_assert(maxm >= 1 && bits >= 3 && bits <= 8);
+    static_assert(maxm >= 1 && bits >= 2 && bits <= 8);
     static_assert(!use_ksplit || maxm == 1);
     constexpr bool use_half2_centroid = (bits == 3 || (bits == 4 && maxm > 1));
     constexpr int multi_row = (maxm == 1 ? 1 : 4);
