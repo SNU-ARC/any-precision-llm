@@ -10,6 +10,52 @@
 template <int, bool>
 __device__ __forceinline__ void dequant(const uint32_t q[], uint32_t q_w[]);
 
+
+template <>
+__device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t q_w[8]) {
+    constexpr uint32_t mask0 = 0xAAAAAAAA;
+    constexpr uint32_t mask1 = 0x55555555;
+
+    q_w[0] = (q[0]&mask0) | ((q[1]&mask0) >> 1);
+    q_w[1] = ((q[0]&mask1) << 1) | (q[1]&mask1);
+
+    constexpr uint32_t mask = 0x03030303;
+    q_w[6] = q_w[0] & mask;
+    q_w[7] = q_w[1] & mask;
+    q_w[4] = (q_w[0] >> 2) & mask;
+    q_w[5] = (q_w[1] >> 2) & mask;
+    q_w[2] = (q_w[0] >> 4) & mask;
+    q_w[3] = (q_w[1] >> 4) & mask;
+    q_w[0] = (q_w[0] >> 6) & mask;
+    q_w[1] = (q_w[1] >> 6) & mask;
+}
+
+
+// template <>
+// __device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t q_w[8]) {
+//     constexpr uint32_t mask0 = 0x88888888;
+//     constexpr uint32_t mask1 = 0x44444444;
+//     constexpr uint32_t mask2 = 0x22222222;
+//     constexpr uint32_t mask3 = 0x11111111;
+
+//     q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
+//     q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
+//     q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
+//     q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
+
+//     constexpr uint32_t mask = 0x0f0f0f0f;
+//     q_w[4] = q_w[0] & mask;
+//     q_w[5] = q_w[1] & mask;
+//     q_w[6] = q_w[2] & mask;
+//     q_w[7] = q_w[3] & mask;
+
+//     q_w[0] = (q_w[0] >> 4) & mask;
+//     q_w[1] = (q_w[1] >> 4) & mask;
+//     q_w[2] = (q_w[2] >> 4) & mask;
+//     q_w[3] = (q_w[3] >> 4) & mask;
+// }
+
+
 template <>
 __device__ __forceinline__ void dequant<3, true>(const uint32_t q[3], uint32_t q_w[4]) {
     constexpr uint32_t mask0 = 0x88888888;
@@ -180,17 +226,21 @@ __global__ void dequant_kbit_store(
     const uint32_t N, const uint32_t K,
     const __half * C, __half * O
 ) {
-    static_assert(bits >= 3 && bits <= 8);
+    static_assert(bits >= 2 && bits <= 8);
     constexpr int num_centroids = 1 << bits, warp_size = 32;
 
     const uint32_t row_idx = blockIdx.x * num_rows + threadIdx.y;
     const int centroid_idx = threadIdx.y * num_centroids;
 
-    __shared__ __half shC[num_rows * num_centroids];
+    // printf("num_centroids: %d %d %d %d %d %d\n", num_centroids, blockIdx.x, threadIdx.x, threadIdx.y, row_idx, centroid_idx);
+
+    __shared__ __half shC[num_rows * num_centroids]; // 16
 
     if constexpr (bits < 6) {
         if (threadIdx.x < num_centroids)
             shC[centroid_idx + threadIdx.x] = C[num_centroids * row_idx + threadIdx.x];
+            // float tmp = __half2float(C[num_centroids * row_idx + threadIdx.x]);
+            // printf("shC: %d %d %f\n", num_centroids * row_idx + threadIdx.x, centroid_idx + threadIdx.x, tmp);
     } else if constexpr (bits == 6) {
         ((half2 *)shC)[centroid_idx / 2 + threadIdx.x] = ((half2 *)C)[num_centroids * row_idx / 2 + threadIdx.x];
     } else if constexpr (bits == 7) {
@@ -205,16 +255,18 @@ __global__ void dequant_kbit_store(
     half2 dq_w[16];
 
     const uint32_t maxi = DIV_ROUND_UP(K, 32 * warp_size);
+    // printf("info: %d %d %d %d %d\n", N, K, 32 * warp_size, maxi, row_idx);
     for (int i = 0; i < maxi; i++) {
         if (i == K / (32 * warp_size)) {
             eff_warp_size = (K % (32 * warp_size)) / 32;
             if (threadIdx.x >= eff_warp_size) break;
         }
 
+        // W: (support_bits, N, K//32)
         // load quantized weight
         #pragma unroll
         for (int j = 0; j < bits; j++) {
-            const int k = (j * N + row_idx) * (K / 32) + i * 32 + threadIdx.x;
+            const int k = (j * N + row_idx) * (K / 32) + i * warp_size + threadIdx.x;
             q[j] = W[k];
         }
 
@@ -237,6 +289,6 @@ __global__ void dequant_kbit_store(
 
         #pragma unroll
         for (int j = 0; j < 4; j++)
-            ((float4 *)O)[(row_idx*K + 8*eff_warp_size*j + i*warp_size*32 + 8*threadIdx.x)/8] = ((float4 *)dq_w)[j];
+            ((float4 *)O)[(row_idx*K + 8 * eff_warp_size * j + i * warp_size * 32 + 8 * threadIdx.x)/8] = ((float4 *)dq_w)[j];
     }
 }
