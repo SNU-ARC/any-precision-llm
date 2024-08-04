@@ -56,6 +56,25 @@ __device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t 
 // }
 
 
+// template <>
+// __device__ __forceinline__ void dequant<2, true>(const uint32_t q[2], uint32_t q_w[4]) {
+//     constexpr uint32_t mask0 = 0x88888888;
+//     constexpr uint32_t mask1 = 0x44444444;
+//     constexpr uint32_t mask2 = 0x22222222;
+//     constexpr uint32_t mask3 = 0x11111111;
+
+//     q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
+//     q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
+//     q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
+//     q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
+
+//     // table lookup merge
+//     #pragma unroll
+//     for (int i = 0; i < 4; i++)
+//         q_w[i] = (q_w[i] & 0x0f0f0f0f) | ((q_w[i] & 0xf0f0f0f0) >> 2);
+// }
+
+
 template <>
 __device__ __forceinline__ void dequant<3, true>(const uint32_t q[3], uint32_t q_w[4]) {
     constexpr uint32_t mask0 = 0x88888888;
@@ -232,15 +251,11 @@ __global__ void dequant_kbit_store(
     const uint32_t row_idx = blockIdx.x * num_rows + threadIdx.y;
     const int centroid_idx = threadIdx.y * num_centroids;
 
-    // printf("num_centroids: %d %d %d %d %d %d\n", num_centroids, blockIdx.x, threadIdx.x, threadIdx.y, row_idx, centroid_idx);
-
-    __shared__ __half shC[num_rows * num_centroids]; // 16
+    __shared__ __half shC[num_rows * num_centroids];
 
     if constexpr (bits < 6) {
         if (threadIdx.x < num_centroids)
             shC[centroid_idx + threadIdx.x] = C[num_centroids * row_idx + threadIdx.x];
-            // float tmp = __half2float(C[num_centroids * row_idx + threadIdx.x]);
-            // printf("shC: %d %d %f\n", num_centroids * row_idx + threadIdx.x, centroid_idx + threadIdx.x, tmp);
     } else if constexpr (bits == 6) {
         ((half2 *)shC)[centroid_idx / 2 + threadIdx.x] = ((half2 *)C)[num_centroids * row_idx / 2 + threadIdx.x];
     } else if constexpr (bits == 7) {
@@ -255,7 +270,6 @@ __global__ void dequant_kbit_store(
     half2 dq_w[16];
 
     const uint32_t maxi = DIV_ROUND_UP(K, 32 * warp_size);
-    // printf("info: %d %d %d %d %d\n", N, K, 32 * warp_size, maxi, row_idx);
     for (int i = 0; i < maxi; i++) {
         if (i == K / (32 * warp_size)) {
             eff_warp_size = (K % (32 * warp_size)) / 32;
