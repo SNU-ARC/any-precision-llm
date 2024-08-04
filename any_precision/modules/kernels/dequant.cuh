@@ -11,68 +11,68 @@ template <int, bool>
 __device__ __forceinline__ void dequant(const uint32_t q[], uint32_t q_w[]);
 
 
+// template <>
+// __device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t q_w[8]) {
+//     constexpr uint32_t mask0 = 0xAAAAAAAA;
+//     constexpr uint32_t mask1 = 0x55555555;
+
+//     q_w[0] = (q[0]&mask0) | ((q[1]&mask0) >> 1);
+//     q_w[1] = ((q[0]&mask1) << 1) | (q[1]&mask1);
+
+//     constexpr uint32_t mask = 0x03030303;
+//     q_w[6] = q_w[0] & mask;
+//     q_w[7] = q_w[1] & mask;
+//     q_w[4] = (q_w[0] >> 2) & mask;
+//     q_w[5] = (q_w[1] >> 2) & mask;
+//     q_w[2] = (q_w[0] >> 4) & mask;
+//     q_w[3] = (q_w[1] >> 4) & mask;
+//     q_w[0] = (q_w[0] >> 6) & mask;
+//     q_w[1] = (q_w[1] >> 6) & mask;
+// }
+
+
 template <>
 __device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t q_w[8]) {
-    constexpr uint32_t mask0 = 0xAAAAAAAA;
-    constexpr uint32_t mask1 = 0x55555555;
+    constexpr uint32_t mask0 = 0x88888888;
+    constexpr uint32_t mask1 = 0x44444444;
+    constexpr uint32_t mask2 = 0x22222222;
+    constexpr uint32_t mask3 = 0x11111111;
 
-    q_w[0] = (q[0]&mask0) | ((q[1]&mask0) >> 1);
-    q_w[1] = ((q[0]&mask1) << 1) | (q[1]&mask1);
+    q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
+    q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
+    q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
+    q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
 
-    constexpr uint32_t mask = 0x03030303;
-    q_w[6] = q_w[0] & mask;
-    q_w[7] = q_w[1] & mask;
-    q_w[4] = (q_w[0] >> 2) & mask;
-    q_w[5] = (q_w[1] >> 2) & mask;
-    q_w[2] = (q_w[0] >> 4) & mask;
-    q_w[3] = (q_w[1] >> 4) & mask;
-    q_w[0] = (q_w[0] >> 6) & mask;
-    q_w[1] = (q_w[1] >> 6) & mask;
+    constexpr uint32_t mask = 0x0f0f0f0f;
+    q_w[4] = q_w[0] & mask;
+    q_w[5] = q_w[1] & mask;
+    q_w[6] = q_w[2] & mask;
+    q_w[7] = q_w[3] & mask;
+
+    q_w[0] = (q_w[0] >> 4) & mask;
+    q_w[1] = (q_w[1] >> 4) & mask;
+    q_w[2] = (q_w[2] >> 4) & mask;
+    q_w[3] = (q_w[3] >> 4) & mask;
 }
 
 
-// template <>
-// __device__ __forceinline__ void dequant<2, false>(const uint32_t q[2], uint32_t q_w[8]) {
-//     constexpr uint32_t mask0 = 0x88888888;
-//     constexpr uint32_t mask1 = 0x44444444;
-//     constexpr uint32_t mask2 = 0x22222222;
-//     constexpr uint32_t mask3 = 0x11111111;
+template <>
+__device__ __forceinline__ void dequant<2, true>(const uint32_t q[2], uint32_t q_w[4]) {
+    constexpr uint32_t mask0 = 0x88888888;
+    constexpr uint32_t mask1 = 0x44444444;
+    constexpr uint32_t mask2 = 0x22222222;
+    constexpr uint32_t mask3 = 0x11111111;
 
-//     q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
-//     q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
-//     q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
-//     q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
+    q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
+    q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
+    q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
+    q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
 
-//     constexpr uint32_t mask = 0x0f0f0f0f;
-//     q_w[4] = q_w[0] & mask;
-//     q_w[5] = q_w[1] & mask;
-//     q_w[6] = q_w[2] & mask;
-//     q_w[7] = q_w[3] & mask;
-
-//     q_w[0] = (q_w[0] >> 4) & mask;
-//     q_w[1] = (q_w[1] >> 4) & mask;
-//     q_w[2] = (q_w[2] >> 4) & mask;
-//     q_w[3] = (q_w[3] >> 4) & mask;
-// }
-
-
-// template <>
-// __device__ __forceinline__ void dequant<2, true>(const uint32_t q[2], uint32_t q_w[4]) {
-//     constexpr uint32_t mask0 = 0x88888888;
-//     constexpr uint32_t mask1 = 0x44444444;
-//     constexpr uint32_t mask2 = 0x22222222;
-//     constexpr uint32_t mask3 = 0x11111111;
-
-//     q_w[0] = (((q[0]&mask0)) | ((q[1]&mask0) >> 1)) >> 2;
-//     q_w[1] = (((q[0]&mask1)) | ((q[1]&mask1) >> 1)) >> 1;
-//     q_w[2] = (q[0]&mask2) | ((q[1]&mask2) >> 1);
-//     q_w[3] = ((q[0]&mask3) << 1) | (q[1]&mask3);
-
-//     // table lookup merge
-//     #pragma unroll
-//     for (int i = 0; i < 4; i++)
-//         q_w[i] = (q_w[i] & 0x0f0f0f0f) | ((q_w[i] & 0xf0f0f0f0) >> 2);
-// }
+    // table lookup merge
+    #pragma unroll
+    for (int i = 0; i < 4; i++)
+        q_w[i] = (q_w[i] & 0x0f0f0f0f) | ((q_w[i] & 0xf0f0f0f0) >> 2);
+}
 
 
 template <>
