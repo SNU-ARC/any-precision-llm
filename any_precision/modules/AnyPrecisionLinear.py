@@ -56,7 +56,7 @@ class AnyPrecisionLinear(nn.Module):
             w_bits = kwargs['precision']
         else:
             w_bits = self.precision
-        
+
         dtype = x.dtype
         
         if x.numel() // x.shape[-1] > 8:
@@ -68,7 +68,8 @@ class AnyPrecisionLinear(nn.Module):
         if self.bias is not None:
             x += self.bias
 
-        return x.clamp(torch.finfo(dtype).min * 0.999, torch.finfo(dtype).max * 0.999)
+        eps = 5e-3
+        return x.clamp(torch.finfo(dtype).min * (1.0-eps), torch.finfo(dtype).max * (1.0-eps))
 
     def set_precision(self, precision):
         if precision not in self.precisions:
