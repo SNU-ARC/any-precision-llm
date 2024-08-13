@@ -8,7 +8,7 @@ except:
 
 
 class AnyPrecisionLinear(nn.Module):
-    def __init__(self, in_features, out_features, supported_bits, bias=True, precisions=None, device=None,
+    def __init__(self, in_features, out_features, supported_bits, bias=True, precisions=None, include_sparse=False, numvals=0, device=None,
                  dtype=None):
         super().__init__()
         if dequant_kbit is None or matmul_kbit is None:
@@ -30,6 +30,15 @@ class AnyPrecisionLinear(nn.Module):
             'qweight',
             torch.empty((max(supported_bits), out_features, in_features // 32), dtype=torch.int32, device=device)
         )
+
+        self.include_sparse = False
+        if include_sparse and numvals > 0:
+            # sparse CSR matrix
+            self.register_buffer("rows", torch.zeros(out_features + 1, dtype=torch.int32))
+            self.register_buffer("cols", torch.zeros(numvals, dtype=torch.int32))
+            self.register_buffer("vals", torch.zeros(numvals, dtype=dtype))
+            self.include_sparse = True
+            self.sparse_weight = None
 
         for bit in supported_bits:
             self.register_buffer(
@@ -61,15 +70,21 @@ class AnyPrecisionLinear(nn.Module):
         
         if x.numel() // x.shape[-1] > 8:
             weight = dequant_kbit(self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
-            x = torch.matmul(x, weight.T)
+            y = torch.matmul(x, weight.T)
         else:
-            x = matmul_kbit(x, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
+            y = matmul_kbit(x, self.qweight, self._buffers[f'lut{w_bits}'], w_bits)
+
+        if self.include_sparse:
+            if self.sparse_weight is None:
+                self.sparse_weight = torch.sparse_csr_tensor(self.rows, self.cols, self.vals, size=(self.out_features, self.in_features), dtype=self.vals.dtype, device=self.vals.device).t()
+            bs, slen, hsize = x.size()
+            y += torch.mm(x.reshape((bs*slen, hsize)), self.sparse_weight).reshape((bs, slen, -1))
 
         if self.bias is not None:
-            x += self.bias
+            y += self.bias
 
         eps = 5e-3
-        return x.clamp(torch.finfo(dtype).min * (1.0-eps), torch.finfo(dtype).max * (1.0-eps))
+        return y.clamp(torch.finfo(dtype).min * (1.0-eps), torch.finfo(dtype).max * (1.0-eps))
 
     def set_precision(self, precision):
         if precision not in self.precisions:

@@ -141,18 +141,26 @@ class AnyPrecisionForCausalLM(nn.Module):
     def _load_quantized_modules(self):
         # Get blocks of model
         layers = self.analyzer.get_layers()
+        sparse_numvals = self.config.anyprec["sparse_numvals"]
 
-        for layer in tqdm(layers, desc="Loading AP Layers"):
+        for layer_idx, layer in tqdm(enumerate(layers), desc="Loading AP Layers"):
             # Get every linear layer in a block
             named_linears = self.analyzer.get_modules(layer)
 
             # Replace nn.Linear with AnyPrecisionLinear
             for name, module in named_linears.items():
+                include_sparse = False
+                numvals = 0
+                if f"model.layers.{layer_idx}."+name in sparse_numvals:
+                    numvals = sparse_numvals[f"model.layers.{layer_idx}."+name]
+                    include_sparse = True
                 wqlinear = AnyPrecisionLinear(
                     module.in_features, module.out_features,
                     self.supported_bits,
                     bias=module.bias is not None,
                     precisions=self.precisions,
+                    include_sparse=include_sparse,
+                    numvals=numvals,
                     device=module.weight.device,
                 )
                 self.ap_linears.append(wqlinear)

@@ -193,6 +193,13 @@ def _get_layer_loader(analyzer, gradients):
         # Only converts one layer at a time to avoid excessive memory usage
         gradient_layer = [gradients[l][name].float().numpy() for name in analyzer.module_names]
         model_layer = [analyzer.get_layer_weights(l)[name].float().numpy() for name in analyzer.module_names]
+
+        for i in range(len(gradient_layer)):
+            weight_mask = model_layer[i] != 0
+            gradient_layer[i] = gradient_layer[i] * weight_mask
+            if np.sum(gradient_layer[i]) == 0:
+                gradient_layer[i] = np.ones_like(gradient_layer[i])
+
         return gradient_layer, model_layer
 
     return layer_loader

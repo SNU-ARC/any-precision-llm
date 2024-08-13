@@ -46,7 +46,7 @@ def _get_outlier_count_from_range(trange, sorted_flattened_weights):
 
 def _process_module(module_data):
     layer_index, module_name, module_weight = module_data
-    sorted_weights = np.sort(module_weight.flatten()).astype(np.float32)  # fp32 for numba
+    sorted_weights = np.sort(module_weight.flatten().cpu().data.to(torch.float32).numpy()).astype(np.float32)  # fp32 for numba
     total_params = module_weight.numel()
     return layer_index, module_name, sorted_weights, total_params
 
@@ -65,7 +65,11 @@ def _find_thresholds(analyzer, outlier_percent, tolerance=0.0001):
     sorted_flattened_weights = []
     total_params = 0
 
-    results = process_map(_process_module, tasks, chunksize=1, max_workers=None, desc="Preprocessing weights")
+    # results = process_map(_process_module, tasks, chunksize=1, max_workers=None, desc="Preprocessing weights")
+    results = []
+    for task in tqdm(tasks):
+        results.append(_process_module(task))
+
 
     for layer_index, module_name, sorted_weights, params in results:
         sorted_flattened_weights.append(sorted_weights)
@@ -121,6 +125,9 @@ def _remove_outliers_by_threshold(analyzer, thresholds_by_module):
 
 
 def _remove_outliers_by_sensitivity(analyzer, gradients, sensitivity_outlier_percent):
+    if sensitivity_outlier_percent == 0.0:
+        return None
+
     sparse_model_weights = []
 
     for l in tqdm(range(analyzer.num_layers), desc="Removing sensitivity outliers"):
@@ -159,8 +166,10 @@ def remove_outliers(analyzer, gradients, sensitivity_outlier_percent, threshold_
     for l in range(analyzer.num_layers):
         sparse_model_weights_by_layer = {}
         for module_name in analyzer.module_names:
-            sparse_model_weights_by_layer[module_name] = (sparse_model_weights_1[l][module_name] +
-                                                          sparse_model_weights_2[l][module_name]).to_sparse()
+            sparse_out = sparse_model_weights_2[l][module_name]
+            if sparse_model_weights_1 is not None:
+                sparse_out += sparse_model_weights_1[l][module_name]
+            sparse_model_weights_by_layer[module_name] = sparse_out.to_sparse()
         sparse_model_weights.append(sparse_model_weights_by_layer)
 
     return sparse_model_weights

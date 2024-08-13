@@ -77,11 +77,16 @@ def _permute_bitmaps_int32(bitmaps):
 
 
 def _process_layer_data(args):
-    layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision = args
+    layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision, dns = args
     layer_data = {}
+    layer_dns = {}
 
     weightpath = os.path.join(lut_path, 'weights', f'l{layer_idx}.pt')
     layer_weights = torch.load(weightpath)
+
+    if dns:
+        sparsepath = os.path.join(lut_path, 'sparse', f'l{layer_idx}.pt')
+        layer_sparse = torch.load(sparsepath)
 
     for i, name in enumerate(module_names):
         N, group_count, group_size = layer_weights[name].shape
@@ -100,6 +105,13 @@ def _process_layer_data(args):
 
         param_name = f'{model_name}.{layers_name}.{layer_idx}.{name}'
         layer_data[param_name + '.qweight'] = weighttensor
+        
+        if dns: 
+            sp_mat = layer_sparse[name].to_dense().to_sparse(layout=torch.sparse_csr)
+            layer_data[param_name + ".rows"] = sp_mat.crow_indices().to(torch.int32).cpu().data.numpy()
+            layer_data[param_name + ".cols"] = sp_mat.col_indices().to(torch.int32).cpu().data.numpy()
+            layer_data[param_name + ".vals"] = sp_mat.values().to(torch.float16).cpu().data.numpy()
+            layer_dns[param_name] = len(sp_mat.values())
 
         for bit in range(seed_precision, parent_precision + 1):
             layer_lut_path = os.path.join(lut_path, f'lut_{bit}', f'l{layer_idx}.pt')
@@ -111,7 +123,7 @@ def _process_layer_data(args):
 
             layer_data[param_name + '.lut' + str(bit)] = curLUT
 
-    return layer_idx, layer_data
+    return layer_idx, layer_data, layer_dns
 
 
 def pack(
@@ -128,8 +140,8 @@ def pack(
     if group_count != 1:
         raise NotImplementedError("Group counts other than 1 are not supported yet for packing")
 
-    if dns:
-        raise NotImplementedError("D&S packing is not supported yet")
+    # if dns:
+    #     raise NotImplementedError("D&S packing is not supported yet")
 
     if cpu_count is None:
         cpu_count = os.cpu_count()
@@ -153,20 +165,30 @@ def pack(
 
     state_dict = analyzer.state_dict
 
-    args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision) for
+    args_list = [(layer_idx, lut_path, model_name, layers_name, module_names, parent_precision, seed_precision, dns) for
                  layer_idx in range(num_layers)]
 
-    with Pool(cpu_count) as pool:
-        for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers, desc="Packing"):
-            for key, value in layer_data.items():
-                state_dict[key] = torch.from_numpy(value)  # Update with modified weights
+    # with Pool(cpu_count) as pool:
+    #     for layer_idx, layer_data in tqdm(pool.imap(_process_layer_data, args_list), total=num_layers, desc="Packing"):
+    #         for key, value in layer_data.items():
+    #             state_dict[key] = torch.from_numpy(value)  # Update with modified weights
+
+    sparse_info = {}
+    for task in args_list:
+        layer_idx, layer_data, layer_dns = _process_layer_data(task)
+        for key, value in layer_data.items():
+            state_dict[key] = torch.from_numpy(value)  # Update with modified weights
+        if dns:
+            for key, value in layer_dns.items():
+                sparse_info[key] = value
 
     # add new config parameters
     anyprec_configs = {
         'seed_precision': seed_precision,
         'parent_precision': parent_precision,
         'group_count': group_count,
-        'arch_config': arch_config
+        'arch_config': arch_config,
+        'sparse_numvals': sparse_info,
     }
     config.anyprec = anyprec_configs
 
