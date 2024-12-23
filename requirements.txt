@@ -11,5 +11,5 @@ safetensors~=0.4.2
 threadpoolctl~=3.2.0
 pyyaml~=6.0.1
 attributedict~=0.3.0
-flash1dkmeans==0.2.1
+flash1dkmeans==0.2.2
 lm-eval==0.4.3
