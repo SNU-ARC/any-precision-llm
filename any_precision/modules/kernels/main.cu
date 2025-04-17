@@ -62,6 +62,9 @@ torch::Tensor dequant_kbit(
     torch::Tensor lut,
     int w_bits
 ) {
+    // Set correct device
+    HANDLE_ERROR(cudaSetDevice(qweight.device().index()));
+
     assert(qweight.ndimension() == 3 && qweight.dtype() == torch::kInt && lut.dtype() == torch::kHalf);
     assert(qweight.device() == lut.device() && qweight.is_cuda());
     assert(w_bits >= 3 && w_bits <= 8);
@@ -93,6 +96,9 @@ torch::Tensor matmul_kbit(
     torch::Tensor lut,
     int w_bits
 ) {
+    // Set correct device
+    HANDLE_ERROR(cudaSetDevice(qweight.device().index()));
+
     const int N = qweight.size(1);
     const int K = qweight.size(2) * 32;
     int64_t in_ndim = in.ndimension();
