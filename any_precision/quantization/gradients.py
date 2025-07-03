@@ -18,7 +18,7 @@ def get_gradients(
     if save_path is not None and os.path.isfile(save_path):
         logging.info(f"Gradients already calculated and saved at {save_path}.")
         logging.info(f"Loading gradients...")
-        return torch.load(save_path)
+        return torch.load(save_path, weights_only=False)
     logging.info(f"Calculating gradients on dataset {dataset} with sequence length {seq_len} and "
                  f"{num_examples} examples...")
 

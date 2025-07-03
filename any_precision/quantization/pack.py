@@ -81,7 +81,7 @@ def _process_layer_data(args):
     layer_data = {}
 
     weightpath = os.path.join(lut_path, 'weights', f'l{layer_idx}.pt')
-    layer_weights = torch.load(weightpath)
+    layer_weights = torch.load(weightpath, weights_only=False)
 
     for i, name in enumerate(module_names):
         N, group_count, group_size = layer_weights[name].shape
@@ -103,7 +103,7 @@ def _process_layer_data(args):
 
         for bit in range(seed_precision, parent_precision + 1):
             layer_lut_path = os.path.join(lut_path, f'lut_{bit}', f'l{layer_idx}.pt')
-            layer_lut = torch.load(layer_lut_path)
+            layer_lut = torch.load(layer_lut_path, weights_only=False)
 
             curLUT = np.empty((N, 2 ** bit), dtype=np.float16)
             for r_idx in range(N):
