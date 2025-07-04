@@ -22,6 +22,8 @@ if __name__ == "__main__":
     parser.add_argument("--random_state", type=int,
                         help="The random state to use for reproducibility\n"
                              "[WARNING] May not be reproducible across different machines")
+    parser.add_argument("--cpu_only", action="store_true",
+                        help="Whether to run the quantization on CPU only. Use when GPU VRAM is limited.")
     parser.add_argument("--group_count", type=int,
                         help="Experimental: Group count per row - the default is 1")
     parser.add_argument("--dns", action="store_true",

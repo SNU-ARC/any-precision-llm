@@ -72,7 +72,7 @@ The final quantized model can be found under `cache/packed`.
 - We have tested the quantization on Llama, OPT and Mistral models. Other models can be automatically quantized,
 but we do not guarantee the correctness of the quantization.  
 - You need free space of approximately 2x the fp16 model size in RAM, VRAM, and disk to quantize the model.
-For Llama 2 7B, this is approximately 28 GB.  
+For Llama 2 7B, this is approximately 28 GB. If VRAM is an issue, check the `--cpu_only` flag.  
 - The quantization process utilizes both CPU and GPU resources. As the main quantization process is CPU-bound,
 use a machine with powerful multicore performance for faster quantization. However, our quantization pipeline is
 highly optimized, and Llama 2 7B can be quantized in under 2 minutes on an i9-13900K machine.
@@ -101,6 +101,8 @@ On lower-end machines this will be a few times slower.
 - `--cpu_count`: The number of cores to use for gradient calculation. Default is the number of available cores.
 - `--random_state`: The random state to use for reproducibility. When not set, the random state is not fixed. Use an
   integer.
+- `--cpu_only`: Whether to run the gradient calculation on CPU only. This is useful when the GPU VRAM is limited.
+  When set, the model will be loaded on CPU and the quantization will be performed on CPU. Slower than GPU.
 
 ### Flags
 

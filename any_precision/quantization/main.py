@@ -34,7 +34,8 @@ def any_precision_quantize(
         group_count=1,
         dns=False,
         sensitivity_outlier_percent=0.05,
-        threshold_outlier_percent=0.40
+        threshold_outlier_percent=0.40,
+        cpu_only=False,
 ):
     assert mode in ['gradients', 'quantize', 'pack'], \
         "mode must be one of 'gradients', 'quantize', or 'pack'. Use 'pack' to run the entire pipeline."
@@ -66,7 +67,7 @@ def any_precision_quantize(
 
     # ------------------- Load model -------------------
 
-    analyzer = get_analyzer(model, yaml_path=yaml_path, include_tokenizer=True)
+    analyzer = get_analyzer(model, yaml_path=yaml_path, include_tokenizer=True, cpu_only=cpu_only)
 
     # ------------------- Set cache paths -------------------
 

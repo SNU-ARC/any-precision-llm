@@ -33,9 +33,6 @@ def get_gradients(
     model = model.bfloat16()
     model.eval()
 
-    if model.device.type != 'cuda':
-        model.cuda()
-
     layers = analyzer.get_layers()
 
     # Register hook to store the square of the gradients

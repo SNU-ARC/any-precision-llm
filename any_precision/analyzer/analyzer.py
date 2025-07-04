@@ -6,9 +6,9 @@ import logging
 from .utils import load_model, load_tokenizer
 
 
-def get_analyzer(model, yaml_path=None, include_tokenizer=False):
+def get_analyzer(model, yaml_path=None, include_tokenizer=False, cpu_only=False):
     # Load model from string if necessary
-    model = load_model(model)
+    model = load_model(model, cpu_only=cpu_only)
 
     # Anyprecision quantized model
     if hasattr(model.config, 'anyprec'):
