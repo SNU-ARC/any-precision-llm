@@ -30,6 +30,10 @@ def get_gradients(
     if analyzer is None:
         analyzer = get_analyzer(model)
 
+    # Preserve the original weights for packing without retaining a second GPU
+    # copy when calibration converts the model to bfloat16.
+    analyzer.state_dict = {name: tensor.cpu() for name, tensor in analyzer.state_dict.items()}
+
     model = model.bfloat16()
     model.eval()
 
